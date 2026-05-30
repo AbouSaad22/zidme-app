@@ -104,6 +104,43 @@ async function apiRedeemReward() {
   mockStamps = 0;
   return { status: 'REDEEMED' };
 }
+// ─── MOCK MERCHANTS NEARBY ────────────────────────────────────────────────────
+const NEARBY_MERCHANTS = [
+  { id: 'm1', name: 'كافيه الأصيل', category: 'CAFE', distance: '120م', rating: 4.8, joined: true, stamps: 3, required: 6, points: 240 },
+  { id: 'm2', name: 'بيتزا زيدني', category: 'PIZZERIA', distance: '350م', rating: 4.5, joined: false, stamps: 0, required: 8, points: 0 },
+  { id: 'm3', name: 'فاست فود برو', category: 'FAST_FOOD', distance: '500م', rating: 4.2, joined: false, stamps: 0, required: 5, points: 0 },
+  { id: 'm4', name: 'مقهى النجوم', category: 'CAFE', distance: '800م', rating: 4.6, joined: false, stamps: 0, required: 6, points: 0 },
+];
+
+// Mock points system
+let myZidmePoints = 180;
+let myMerchantPoints = { m1: 240, m2: 0, m3: 0, m4: 0 };
+
+async function apiGetNearby() {
+  await delay(1000);
+  return NEARBY_MERCHANTS;
+}
+async function apiJoinMerchant(merchantId) {
+  await delay(600);
+  return { success: true };
+}
+async function apiAddPoints(merchantId, amount) {
+  await delay(500);
+  const pts = Math.floor(amount / 100) * 10;
+  myMerchantPoints[merchantId] = (myMerchantPoints[merchantId] || 0) + pts;
+  myZidmePoints += Math.floor(pts * 0.1);
+  return { pointsAdded: pts, total: myMerchantPoints[merchantId] };
+}
+async function apiSharePoints(toPhone, amount) {
+  await delay(800);
+  myZidmePoints = Math.max(0, myZidmePoints - amount);
+  return { success: true, remaining: myZidmePoints };
+}
+async function apiGetReferralLink() {
+  await delay(300);
+  return { link: 'https://zidme.dz/join?ref=ABD2024', code: 'ABD2024' };
+}
+
 
 // ─── SHARED COMPONENTS ───────────────────────────────────────────────────────
 function Btn({ label, onPress, loading, disabled, variant = 'primary', style }) {
@@ -1061,14 +1098,420 @@ function RewardReadyScreen({ navigate }) {
   );
 }
 
+
+// ─── SCREEN: NEARBY MERCHANTS ─────────────────────────────────────────────────
+function NearbyScreen({ navigate }) {
+  const [merchants, setMerchants] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [joining, setJoining] = useState(null);
+  const [joined, setJoined] = useState({});
+  const [locating, setLocating] = useState(true);
+
+  useEffect(() => {
+    setTimeout(() => setLocating(false), 1500);
+    load();
+  }, []);
+
+  const load = async () => {
+    try { const r = await apiGetNearby(); setMerchants(r); }
+    finally { setLoading(false); }
+  };
+
+  const handleJoin = async (merchantId) => {
+    try {
+      setJoining(merchantId);
+      await apiJoinMerchant(merchantId);
+      setJoined(prev => ({ ...prev, [merchantId]: true }));
+    } finally { setJoining(null); }
+  };
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: C.background }}>
+      {/* Header */}
+      <View style={{ backgroundColor: C.primary, padding: 20, gap: 8 }}>
+        <Text style={{ fontSize: 20, fontWeight: '700', color: C.white, textAlign: 'right' }}>
+          محلات قريبة منك
+        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
+          <Text style={{ fontSize: 13, color: locating ? C.accent : '#4ADE80' }}>
+            {locating ? 'جارٍ تحديد موقعك...' : 'تم تحديد موقعك'}
+          </Text>
+          <Text style={{ fontSize: 16 }}>{locating ? '📡' : '📍'}</Text>
+        </View>
+      </View>
+
+      {/* Map placeholder */}
+      <View style={{ height: 140, backgroundColor: '#E8F4EF', alignItems: 'center', justifyContent: 'center',
+        borderBottomWidth: 1, borderBottomColor: C.border, position: 'relative', overflow: 'hidden' }}>
+        {/* Fake map grid */}
+        {[0,1,2,3,4].map(i => (
+          <View key={i} style={{ position: 'absolute', left: 0, right: 0, top: i * 28,
+            height: 1, backgroundColor: 'rgba(13,61,46,0.08)' }} />
+        ))}
+        {[0,1,2,3,4,5].map(i => (
+          <View key={i} style={{ position: 'absolute', top: 0, bottom: 0, left: i * 60,
+            width: 1, backgroundColor: 'rgba(13,61,46,0.08)' }} />
+        ))}
+        {/* Merchant dots */}
+        {[
+          { x: 160, y: 60, active: true },
+          { x: 80, y: 90, active: false },
+          { x: 240, y: 40, active: false },
+          { x: 300, y: 100, active: false },
+        ].map((dot, i) => (
+          <View key={i} style={{ position: 'absolute', left: dot.x, top: dot.y,
+            width: dot.active ? 20 : 14, height: dot.active ? 20 : 14,
+            borderRadius: dot.active ? 10 : 7,
+            backgroundColor: dot.active ? C.accent : C.primary,
+            borderWidth: 2, borderColor: C.white,
+            shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 4, elevation: 3 }} />
+        ))}
+        {/* My location */}
+        <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: '#3B82F6',
+          borderWidth: 3, borderColor: C.white, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 6, elevation: 4 }} />
+        {/* Map disabled overlay */}
+        <View style={{ position: 'absolute', bottom: 8, right: 8, backgroundColor: 'rgba(13,61,46,0.7)',
+          borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 }}>
+          <Text style={{ fontSize: 11, color: C.white }}>🗺️ الخريطة الكاملة — قريباً</Text>
+        </View>
+      </View>
+
+      {/* List */}
+      <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
+        {loading ? (
+          <View style={{ alignItems: 'center', padding: 40 }}>
+            <ActivityIndicator size="large" color={C.primary} />
+            <Text style={{ marginTop: 12, color: C.textSecondary }}>جارٍ البحث...</Text>
+          </View>
+        ) : merchants.map(m => {
+          const isJoined = m.joined || joined[m.id];
+          return (
+            <View key={m.id} style={{ backgroundColor: C.white, borderRadius: 18, padding: 16, gap: 12,
+              borderWidth: isJoined ? 2 : 1, borderColor: isJoined ? C.primary : C.border,
+              shadowColor: C.primary, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  {isJoined && (
+                    <View style={{ backgroundColor: C.primarySurface, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
+                      <Text style={{ fontSize: 11, color: C.primary, fontWeight: '700' }}>منضم</Text>
+                    </View>
+                  )}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <Text style={{ fontSize: 12, color: C.textMuted }}>{m.distance}</Text>
+                    <Text style={{ fontSize: 14 }}>📍</Text>
+                  </View>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: C.textPrimary }}>{m.name}</Text>
+                  <Text style={{ fontSize: 28 }}>{CATEGORY_ICONS[m.category]}</Text>
+                </View>
+              </View>
+
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Text style={{ fontSize: 13, color: C.textSecondary }}>{m.required} طوابع للهدية</Text>
+                  <Text style={{ fontSize: 14 }}>🏷️</Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Text style={{ fontSize: 13, color: C.accent, fontWeight: '600' }}>{m.rating}</Text>
+                  <Text style={{ fontSize: 14 }}>⭐</Text>
+                </View>
+              </View>
+
+              {isJoined && (
+                <View style={{ gap: 6 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={{ fontSize: 12, color: C.textMuted }}>{m.required} / {m.stamps} طابع</Text>
+                    <Text style={{ fontSize: 12, color: C.primary, fontWeight: '600' }}>تقدمك</Text>
+                  </View>
+                  <View style={{ height: 6, backgroundColor: C.stampEmpty, borderRadius: 99, overflow: 'hidden' }}>
+                    <View style={{ width: `${(m.stamps / m.required) * 100}%`, height: '100%',
+                      backgroundColor: C.accent, borderRadius: 99 }} />
+                  </View>
+                </View>
+              )}
+
+              {!isJoined ? (
+                <TouchableOpacity onPress={() => handleJoin(m.id)}
+                  disabled={joining === m.id} activeOpacity={0.85}
+                  style={{ backgroundColor: C.primary, borderRadius: 12, padding: 14,
+                    alignItems: 'center', opacity: joining === m.id ? 0.6 : 1 }}>
+                  {joining === m.id
+                    ? <ActivityIndicator color={C.white} />
+                    : <Text style={{ fontSize: 15, fontWeight: '700', color: C.white }}>انضم الآن</Text>}
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity onPress={() => navigate('StampCard')}
+                  style={{ backgroundColor: C.primarySurface, borderRadius: 12, padding: 12, alignItems: 'center' }}>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: C.primary }}>عرض بطاقتي</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          );
+        })}
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+// ─── SCREEN: POINTS WALLET ────────────────────────────────────────────────────
+function PointsWalletScreen({ navigate }) {
+  const [zidmePoints, setZidmePoints] = useState(myZidmePoints);
+  const [merchantPoints] = useState(myMerchantPoints);
+  const [showShare, setShowShare] = useState(false);
+  const [sharePhone, setSharePhone] = useState('');
+  const [shareAmount, setShareAmount] = useState('');
+  const [sharing, setSharing] = useState(false);
+  const [shareSuccess, setShareSuccess] = useState(false);
+  const [referral, setReferral] = useState(null);
+  const [loadingRef, setLoadingRef] = useState(false);
+
+  const handleShare = async () => {
+    const amount = parseInt(shareAmount);
+    if (!sharePhone || !amount || amount > zidmePoints) return;
+    try {
+      setSharing(true);
+      const res = await apiSharePoints(sharePhone, amount);
+      myZidmePoints = res.remaining;
+      setZidmePoints(res.remaining);
+      setShareSuccess(true);
+      setSharePhone(''); setShareAmount('');
+      setTimeout(() => { setShareSuccess(false); setShowShare(false); }, 2000);
+    } finally { setSharing(false); }
+  };
+
+  const loadReferral = async () => {
+    try {
+      setLoadingRef(true);
+      const res = await apiGetReferralLink();
+      setReferral(res);
+    } finally { setLoadingRef(false); }
+  };
+
+  useEffect(() => { loadReferral(); }, []);
+
+  const totalMerchantPts = Object.values(merchantPoints).reduce((a, b) => a + b, 0);
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: C.background }}>
+      <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
+
+        {/* Zidme Points Card */}
+        <View style={{ backgroundColor: C.primary, borderRadius: 24, padding: 24, gap: 16 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <View style={{ backgroundColor: 'rgba(245,166,35,0.2)', borderRadius: 12,
+              paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: C.accent }}>
+              <Text style={{ fontSize: 12, color: C.accent, fontWeight: '700' }}>نقاط Zidme</Text>
+            </View>
+            <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>محفظتك الرقمية</Text>
+          </View>
+          <View style={{ alignItems: 'flex-end' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
+              <Text style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)' }}>نقطة</Text>
+              <Text style={{ fontSize: 56, fontWeight: '900', color: C.accent }}>{zidmePoints}</Text>
+            </View>
+            <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>
+              تتحول لاحقاً إلى هدايا وخصومات
+            </Text>
+          </View>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <TouchableOpacity onPress={() => setShowShare(true)}
+              style={{ flex: 1, backgroundColor: C.accent, borderRadius: 12, padding: 12, alignItems: 'center' }}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: C.primary }}>مشاركة نقاط</Text>
+            </TouchableOpacity>
+            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 12,
+              padding: 12, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>استبدال — قريباً</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Merchant Points */}
+        <View style={{ backgroundColor: C.white, borderRadius: 20, padding: 20, gap: 14,
+          shadowColor: C.primary, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text style={{ fontSize: 14, color: C.textSecondary }}>{totalMerchantPts} نقطة إجمالي</Text>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: C.textPrimary }}>نقاط المحلات</Text>
+          </View>
+          {NEARBY_MERCHANTS.filter(m => merchantPoints[m.id] > 0).map(m => (
+            <View key={m.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 12,
+              paddingVertical: 10, borderTopWidth: 1, borderTopColor: C.borderLight }}>
+              <View style={{ backgroundColor: C.accentLight, borderRadius: 10,
+                paddingHorizontal: 10, paddingVertical: 4 }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: C.primary }}>
+                  {merchantPoints[m.id]}
+                </Text>
+              </View>
+              <View style={{ flex: 1, alignItems: 'flex-end' }}>
+                <Text style={{ fontSize: 15, fontWeight: '600', color: C.textPrimary }}>{m.name}</Text>
+                <Text style={{ fontSize: 12, color: C.textMuted }}>{CATEGORY_NAMES[m.category]}</Text>
+              </View>
+              <Text style={{ fontSize: 24 }}>{CATEGORY_ICONS[m.category]}</Text>
+            </View>
+          ))}
+          {totalMerchantPts === 0 && (
+            <Text style={{ fontSize: 14, color: C.textMuted, textAlign: 'center', padding: 12 }}>
+              لا توجد نقاط بعد — ابدأ بالتسوق!
+            </Text>
+          )}
+        </View>
+
+        {/* Referral */}
+        <View style={{ backgroundColor: C.white, borderRadius: 20, padding: 20, gap: 14,
+          shadowColor: C.primary, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text style={{ fontSize: 14 }}>🎁</Text>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: C.textPrimary }}>ادعُ أصدقاءك</Text>
+          </View>
+          <Text style={{ fontSize: 13, color: C.textSecondary, textAlign: 'right', lineHeight: 20 }}>
+            شارك رابط الدعوة واحصل على نقاط Zidme عند انضمام كل صديق
+          </Text>
+          {loadingRef ? <ActivityIndicator color={C.primary} /> : referral && (
+            <View style={{ gap: 10 }}>
+              <View style={{ backgroundColor: C.primarySurface, borderRadius: 12, padding: 14,
+                borderWidth: 1, borderColor: C.border, flexDirection: 'row',
+                justifyContent: 'space-between', alignItems: 'center' }}>
+                <View style={{ backgroundColor: C.primary, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 }}>
+                  <Text style={{ fontSize: 12, color: C.white, fontWeight: '700' }}>نسخ</Text>
+                </View>
+                <Text style={{ fontSize: 13, color: C.primary, fontWeight: '600', flex: 1, textAlign: 'right', marginHorizontal: 8 }}>
+                  {referral.link}
+                </Text>
+              </View>
+              <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8 }}>
+                <View style={{ backgroundColor: C.accentLight, borderRadius: 10,
+                  paddingHorizontal: 16, paddingVertical: 8, alignItems: 'center' }}>
+                  <Text style={{ fontSize: 16, fontWeight: '800', color: C.primary }}>{referral.code}</Text>
+                  <Text style={{ fontSize: 11, color: C.textSecondary }}>كود الدعوة</Text>
+                </View>
+              </View>
+            </View>
+          )}
+        </View>
+
+      </ScrollView>
+
+      {/* Share Points Modal */}
+      <Modal visible={showShare} transparent animationType="slide">
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: C.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, gap: 16 }}>
+            {shareSuccess ? (
+              <View style={{ alignItems: 'center', padding: 20, gap: 12 }}>
+                <Text style={{ fontSize: 60 }}>✅</Text>
+                <Text style={{ fontSize: 20, fontWeight: '700', color: C.primary }}>تمت المشاركة!</Text>
+              </View>
+            ) : (
+              <>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <TouchableOpacity onPress={() => setShowShare(false)}>
+                    <Text style={{ fontSize: 16, color: C.error }}>إلغاء</Text>
+                  </TouchableOpacity>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: C.textPrimary }}>مشاركة النقاط</Text>
+                </View>
+                <View style={{ backgroundColor: C.primarySurface, borderRadius: 12, padding: 14, alignItems: 'center' }}>
+                  <Text style={{ fontSize: 13, color: C.textSecondary }}>رصيدك المتاح</Text>
+                  <Text style={{ fontSize: 32, fontWeight: '900', color: C.primary }}>{zidmePoints} نقطة</Text>
+                </View>
+                <TextInput value={sharePhone} onChangeText={setSharePhone}
+                  placeholder="رقم هاتف المستقبل (0XXXXXXXXX)" placeholderTextColor={C.textMuted}
+                  keyboardType="number-pad" maxLength={10}
+                  style={{ borderWidth: 1.5, borderColor: C.border, borderRadius: 14, padding: 16,
+                    fontSize: 16, color: C.textPrimary, textAlign: 'right' }} />
+                <TextInput value={shareAmount} onChangeText={setShareAmount}
+                  placeholder="عدد النقاط" placeholderTextColor={C.textMuted}
+                  keyboardType="number-pad"
+                  style={{ borderWidth: 1.5, borderColor: C.border, borderRadius: 14, padding: 16,
+                    fontSize: 16, color: C.textPrimary, textAlign: 'right' }} />
+                <Btn label="شارك النقاط" onPress={handleShare} loading={sharing}
+                  disabled={!sharePhone || !shareAmount || parseInt(shareAmount) > zidmePoints} />
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
+  );
+}
+
+// ─── SCREEN: ADD POINTS (Cashier) ─────────────────────────────────────────────
+function AddPointsScreen({ navigate }) {
+  const [amount, setAmount] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState(null);
+
+  const handleAdd = async () => {
+    const amt = parseInt(amount);
+    if (!amt || amt < 100) return;
+    try {
+      setLoading(true);
+      const res = await apiAddPoints('m1', amt);
+      setResult(res);
+      setTimeout(() => { setResult(null); setAmount(''); navigate('CashierQueue'); }, 2500);
+    } finally { setLoading(false); }
+  };
+
+  if (result) return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#F0FDF4', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+      <Text style={{ fontSize: 70 }}>⭐</Text>
+      <Text style={{ fontSize: 22, fontWeight: '700', color: '#16A34A' }}>
+        +{result.pointsAdded} نقطة
+      </Text>
+      <Text style={{ fontSize: 15, color: C.textSecondary }}>
+        إجمالي الزبون: {result.total} نقطة
+      </Text>
+    </SafeAreaView>
+  );
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: C.background }}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <View style={{ flex: 1, padding: 24, justifyContent: 'center', gap: 24 }}>
+          <View style={{ alignItems: 'center', gap: 8 }}>
+            <Text style={{ fontSize: 56 }}>⭐</Text>
+            <Text style={{ fontSize: 22, fontWeight: '700', color: C.textPrimary }}>إضافة نقاط</Text>
+            <Text style={{ fontSize: 14, color: C.textSecondary, textAlign: 'center' }}>
+              كل 100 دج = 10 نقاط للزبون
+            </Text>
+          </View>
+
+          <View style={{ backgroundColor: C.white, borderRadius: 20, padding: 20, gap: 16,
+            shadowColor: C.primary, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2 }}>
+            <Text style={{ fontSize: 16, fontWeight: '600', color: C.textPrimary, textAlign: 'right' }}>
+              مبلغ الشراء (دج)
+            </Text>
+            <TextInput value={amount} onChangeText={setAmount}
+              placeholder="مثال: 1500" placeholderTextColor={C.textMuted}
+              keyboardType="number-pad" autoFocus
+              style={{ borderWidth: 1.5, borderColor: C.border, borderRadius: 14, padding: 16,
+                fontSize: 24, color: C.textPrimary, textAlign: 'center', fontWeight: '700' }} />
+            {amount && parseInt(amount) >= 100 && (
+              <View style={{ backgroundColor: C.accentLight, borderRadius: 12, padding: 12, alignItems: 'center' }}>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: C.primary }}>
+                  = {Math.floor(parseInt(amount) / 100) * 10} نقطة للزبون
+                </Text>
+              </View>
+            )}
+          </View>
+
+          <Btn label="منح النقاط" onPress={handleAdd} loading={loading}
+            disabled={!amount || parseInt(amount) < 100} />
+          <Btn label="رجوع" onPress={() => navigate('CashierQueue')} variant="ghost" />
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}
+
 // ─── NAV BAR ──────────────────────────────────────────────────────────────────
 const NAV_ITEMS = [
   { label: 'دخول', screen: 'PhoneLogin', icon: '📱' },
   { label: 'الدور', screen: 'RoleSelect', icon: '👤' },
+  { label: 'قريبة', screen: 'Nearby', icon: '📍' },
+  { label: 'نقاطي', screen: 'PointsWallet', icon: '⭐' },
   { label: 'تاجر', screen: 'MerchantSetup', icon: '🏪' },
-  { label: 'QR', screen: 'QRPoster', icon: '📋' },
   { label: 'لوحة', screen: 'Dashboard', icon: '📊' },
   { label: 'كاشير', screen: 'CashierQueue', icon: '⚡' },
+  { label: 'نقاط+', screen: 'AddPoints', icon: '💰' },
   { label: 'طوابع', screen: 'StampCard', icon: '🏷️' },
   { label: 'هدية', screen: 'RewardReady', icon: '🏆' },
 ];
@@ -1090,6 +1533,9 @@ export default function App() {
     CashierQueue: <CashierQueueScreen navigate={navigate} params={params} />,
     CashierConfirm: <CashierConfirmScreen navigate={navigate} params={params} />,
     CustomerEntry: <CustomerEntryScreen navigate={navigate} params={params} />,
+    Nearby: <NearbyScreen navigate={navigate} params={params} />,
+    PointsWallet: <PointsWalletScreen navigate={navigate} params={params} />,
+    AddPoints: <AddPointsScreen navigate={navigate} params={params} />,
     StampCard: <StampCardScreen navigate={navigate} params={params} />,
     StampSuccess: <StampSuccessScreen navigate={navigate} params={params} />,
     RewardReady: <RewardReadyScreen navigate={navigate} params={params} />,
