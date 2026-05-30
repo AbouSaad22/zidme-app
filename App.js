@@ -957,8 +957,9 @@ function CustomerEntryScreen({ navigate }) {
 }
 
 // ─── SCREEN: STAMP CARD ───────────────────────────────────────────────────────
-function StampCardScreen({ navigate }) {
+function StampCardScreen({ navigate, params }) {
   const merchant = mockMerchant || { name: 'كافيه الأصيل', category: 'CAFE' };
+  const category = merchant.category || 'CAFE';
   const [stamps, setStamps] = useState(mockStamps);
   const [loading, setLoading] = useState(false);
   const [waiting, setWaiting] = useState(false);
@@ -996,7 +997,7 @@ function StampCardScreen({ navigate }) {
             <Text style={{ fontSize: 26, fontWeight: '500', color: C.textSecondary }}>{required}</Text>
             <Text style={{ fontSize: 14, color: C.textSecondary, marginLeft: 4 }}>طابع</Text>
           </View>
-          <StampGrid current={stamps} required={required} category={merchant.category} />
+          <StampGrid current={stamps} required={required} category={category} />
           <View style={{ width: '100%', height: 6, backgroundColor: C.stampEmpty, borderRadius: 99, overflow: 'hidden' }}>
             <View style={{ width: `${(stamps / required) * 100}%`, height: '100%', backgroundColor: C.accent, borderRadius: 99 }} />
           </View>
@@ -1375,6 +1376,7 @@ function PointsWalletScreen({ navigate }) {
   const [shareAmount, setShareAmount] = useState('');
   const [sharing, setSharing] = useState(false);
   const [shareSuccess, setShareSuccess] = useState(false);
+  const [shareMerchant, setShareMerchant] = useState(null);
   const [referral, setReferral] = useState(null);
   const [loadingRef, setLoadingRef] = useState(false);
 
@@ -1509,34 +1511,91 @@ function PointsWalletScreen({ navigate }) {
       {/* Share Points Modal */}
       <Modal visible={showShare} transparent animationType="slide">
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
-          <View style={{ backgroundColor: C.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, gap: 16 }}>
+          <View style={{ backgroundColor: C.white, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+            padding: 24, gap: 16, paddingBottom: 36 }}>
             {shareSuccess ? (
               <View style={{ alignItems: 'center', padding: 20, gap: 12 }}>
                 <Text style={{ fontSize: 60 }}>✅</Text>
                 <Text style={{ fontSize: 20, fontWeight: '700', color: C.primary }}>تمت المشاركة!</Text>
+                <Text style={{ fontSize: 14, color: C.textSecondary, textAlign: 'center' }}>
+                  سيصل للمتلقي إشعار مع دعوة للانضمام للمحل
+                </Text>
               </View>
             ) : (
               <>
+                <View style={{ alignItems: 'center' }}>
+                  <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: C.border }} />
+                </View>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                   <TouchableOpacity onPress={() => setShowShare(false)}>
                     <Text style={{ fontSize: 16, color: C.error }}>إلغاء</Text>
                   </TouchableOpacity>
                   <Text style={{ fontSize: 18, fontWeight: '700', color: C.textPrimary }}>مشاركة النقاط</Text>
                 </View>
+
+                {/* Balance */}
                 <View style={{ backgroundColor: C.primarySurface, borderRadius: 12, padding: 14, alignItems: 'center' }}>
                   <Text style={{ fontSize: 13, color: C.textSecondary }}>رصيدك المتاح</Text>
                   <Text style={{ fontSize: 32, fontWeight: '900', color: C.primary }}>{zidmePoints} نقطة</Text>
                 </View>
+
+                {/* Phone */}
                 <TextInput value={sharePhone} onChangeText={setSharePhone}
                   placeholder="رقم هاتف المستقبل (0XXXXXXXXX)" placeholderTextColor={C.textMuted}
                   keyboardType="number-pad" maxLength={10}
                   style={{ borderWidth: 1.5, borderColor: C.border, borderRadius: 14, padding: 16,
                     fontSize: 16, color: C.textPrimary, textAlign: 'right' }} />
+
+                {/* Amount */}
                 <TextInput value={shareAmount} onChangeText={setShareAmount}
                   placeholder="عدد النقاط" placeholderTextColor={C.textMuted}
                   keyboardType="number-pad"
                   style={{ borderWidth: 1.5, borderColor: C.border, borderRadius: 14, padding: 16,
                     fontSize: 16, color: C.textPrimary, textAlign: 'right' }} />
+
+                {/* Merchant invite option */}
+                <View style={{ gap: 8 }}>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: C.textPrimary, textAlign: 'right' }}>
+                    ادعُه لمحل معين (اختياري)
+                  </Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <TouchableOpacity onPress={() => setShareMerchant(null)}
+                        style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 99,
+                          backgroundColor: !shareMerchant ? C.primary : C.primarySurface,
+                          borderWidth: 1.5, borderColor: !shareMerchant ? C.primary : C.border }}>
+                        <Text style={{ fontSize: 13, fontWeight: '600',
+                          color: !shareMerchant ? C.white : C.primary }}>بدون دعوة</Text>
+                      </TouchableOpacity>
+                      {NEARBY_MERCHANTS.map(m => (
+                        <TouchableOpacity key={m.id} onPress={() => setShareMerchant(m.id)}
+                          style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 99,
+                            backgroundColor: shareMerchant === m.id ? C.primary : C.primarySurface,
+                            borderWidth: 1.5, borderColor: shareMerchant === m.id ? C.primary : C.border }}>
+                          <Text style={{ fontSize: 13, fontWeight: '600',
+                            color: shareMerchant === m.id ? C.white : C.primary }}>
+                            {CATEGORY_ICONS[m.category]} {m.name}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </ScrollView>
+
+                  {/* Preview of what recipient sees */}
+                  {shareMerchant && (
+                    <View style={{ backgroundColor: C.accentLight, borderRadius: 12, padding: 12, gap: 4,
+                      borderWidth: 1, borderColor: C.accent }}>
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: C.primary, textAlign: 'right' }}>
+                        ما سيراه المتلقي:
+                      </Text>
+                      <Text style={{ fontSize: 13, color: C.textPrimary, textAlign: 'right', lineHeight: 20 }}>
+                        {'"'}أرسل لك {shareAmount || '...'} نقطة في {NEARBY_MERCHANTS.find(m=>m.id===shareMerchant)?.name} —
+                        انضم الآن واستخدمها!{'"'}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
                 <Btn label="شارك النقاط" onPress={handleShare} loading={sharing}
                   disabled={!sharePhone || !shareAmount || parseInt(shareAmount) > zidmePoints} />
               </>
