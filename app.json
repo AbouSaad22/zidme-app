@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "Zidme",
+    "slug": "zidme-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#0D3D2E"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0D3D2E"
+      },
+      "package": "dz.zidme.app"
+    },
+    "ios": {
+      "bundleIdentifier": "dz.zidme.app",
+      "supportsTablet": false
+    },
+    "platforms": ["ios", "android"]
+  }
+}
