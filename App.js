@@ -424,6 +424,7 @@ function MerchantSetupScreen({ navigate }) {
   const [stamps, setStamps] = useState(6);
   const [strategy, setStrategy] = useState('PER_VISIT');
   const [minAmount, setMinAmount] = useState('');
+  const [pointsPerStamp, setPointsPerStamp] = useState(50);
   const [loading, setLoading] = useState(false);
 
   const handleCreate = async () => {
@@ -522,7 +523,6 @@ function MerchantSetupScreen({ navigate }) {
   );
 
   // Step 3: Reward setup
-  const [pointsPerStamp, setPointsPerStamp] = useState(50);
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: C.background }}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
