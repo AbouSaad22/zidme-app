@@ -1098,24 +1098,22 @@ export default function App() {
   return (
     <View style={{ flex: 1 }}>
       {screens[screen] || screens['PhoneLogin']}
-      {/* Nav Bar */}
-      <View style={{ backgroundColor: C.primary, borderTopWidth: 2, borderTopColor: C.primaryLight }}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 12, paddingBottom: 40, gap: 6, flexDirection: 'row' }}>
+      {/* Nav Bar - Grid 4x2 */}
+      <View style={{ backgroundColor: C.primary, borderTopWidth: 2, borderTopColor: C.primaryLight, paddingBottom: 32, paddingTop: 8, paddingHorizontal: 8 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
           {NAV_ITEMS.map(({ label, screen: s, icon }) => (
             <TouchableOpacity key={s} onPress={() => navigate(s)} activeOpacity={0.7}
-              style={{ alignItems: 'center', justifyContent: 'center',
-                paddingVertical: 12, paddingHorizontal: 18,
-                minWidth: 80, minHeight: 72,
-                backgroundColor: screen === s ? 'rgba(245,166,35,0.2)' : 'rgba(255,255,255,0.05)',
-                borderRadius: 16, marginHorizontal: 4,
-                borderWidth: screen === s ? 1.5 : 0, borderColor: C.accent }}>
-              <Text style={{ fontSize: 28 }}>{icon}</Text>
-              <Text style={{ fontSize: 13, color: screen === s ? C.accent : 'rgba(255,255,255,0.55)',
-                fontWeight: screen === s ? '800' : '500', textAlign: 'center', marginTop: 6 }}>{label}</Text>
+              style={{ width: '25%', alignItems: 'center', justifyContent: 'center',
+                paddingVertical: 14,
+                backgroundColor: screen === s ? 'rgba(245,166,35,0.2)' : 'transparent',
+                borderRadius: 12 }}>
+              <Text style={{ fontSize: 32 }}>{icon}</Text>
+              <Text style={{ fontSize: 13, color: screen === s ? C.accent : 'rgba(255,255,255,0.6)',
+                fontWeight: screen === s ? '800' : '500', marginTop: 6, textAlign: 'center' }}>{label}</Text>
+              {screen === s && <View style={{ width: 24, height: 3, borderRadius: 2, backgroundColor: C.accent, marginTop: 4 }} />}
             </TouchableOpacity>
           ))}
-        </ScrollView>
+        </View>
       </View>
     </View>
   );
