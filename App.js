@@ -104,6 +104,16 @@ async function apiRedeemReward() {
   mockStamps = 0;
   return { status: 'REDEEMED' };
 }
+async function apiConvertPointsToStamp(merchantId, pointsPerStamp) {
+  await delay(700);
+  const available = myMerchantPoints[merchantId] || 0;
+  if (available < pointsPerStamp) throw { message: 'نقاط غير كافية' };
+  const stampsToAdd = Math.floor(available / pointsPerStamp);
+  const remainder = available % pointsPerStamp;
+  myMerchantPoints[merchantId] = remainder;
+  mockStamps = Math.min(mockStamps + stampsToAdd, REQUIRED);
+  return { stampsAdded: stampsToAdd, remainingPoints: remainder, newTotal: mockStamps };
+}
 // ─── MOCK MERCHANTS NEARBY ────────────────────────────────────────────────────
 const NEARBY_MERCHANTS = [
   { id: 'm1', name: 'كافيه الأصيل', category: 'CAFE', distance: '120م', rating: 4.8, joined: true, stamps: 3, required: 6, points: 240 },
@@ -512,6 +522,7 @@ function MerchantSetupScreen({ navigate }) {
   );
 
   // Step 3: Reward setup
+  const [pointsPerStamp, setPointsPerStamp] = useState(50);
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: C.background }}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -603,6 +614,38 @@ function MerchantSetupScreen({ navigate }) {
                   fontSize: 16, color: C.textPrimary, backgroundColor: C.white, textAlign: 'right' }} />
             </View>
           )}
+
+          {/* Points per stamp */}
+          <View style={{ gap: 8 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={{ fontSize: 13, color: C.textMuted }}>نقطة = طابع واحد</Text>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: C.textPrimary, textAlign: 'right' }}>
+                تحويل النقاط إلى طوابع
+              </Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, justifyContent: 'center',
+              backgroundColor: C.white, borderRadius: 14, padding: 16, borderWidth: 1.5, borderColor: C.border }}>
+              <TouchableOpacity onPress={() => setPointsPerStamp(p => Math.max(10, p - 10))}
+                style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: C.border,
+                  alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontSize: 22, fontWeight: '700', color: C.textPrimary }}>-</Text>
+              </TouchableOpacity>
+              <View style={{ alignItems: 'center' }}>
+                <Text style={{ fontSize: 36, fontWeight: '900', color: C.primary }}>{pointsPerStamp}</Text>
+                <Text style={{ fontSize: 12, color: C.textMuted }}>نقطة = طابع</Text>
+              </View>
+              <TouchableOpacity onPress={() => setPointsPerStamp(p => Math.min(500, p + 10))}
+                style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: C.primary,
+                  alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontSize: 22, fontWeight: '700', color: C.white }}>+</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={{ backgroundColor: C.accentLight, borderRadius: 10, padding: 10 }}>
+              <Text style={{ fontSize: 12, color: C.primary, textAlign: 'center' }}>
+                💡 الزبون يحول نقاطه إلى طوابع متى أراد — الباقي يبقى محفوظاً
+              </Text>
+            </View>
+          </View>
 
           <View style={{ flexDirection: 'row', gap: 12 }}>
             <Btn label="رجوع" onPress={() => setStep(2)} variant="ghost" style={{ flex: 1 }} />
@@ -1254,6 +1297,111 @@ function NearbyScreen({ navigate }) {
   );
 }
 
+// ─── COMPONENT: CONVERT POINTS TO STAMPS ────────────────────────────────────
+function ConvertPointsSection({ navigate }) {
+  const POINTS_PER_STAMP = mockProgram?.pointsPerStamp || 50;
+  const [converting, setConverting] = useState(false);
+  const [result, setResult] = useState(null);
+  const [selectedMerchant, setSelectedMerchant] = useState('m1');
+
+  const availablePoints = myMerchantPoints[selectedMerchant] || 0;
+  const possibleStamps = Math.floor(availablePoints / POINTS_PER_STAMP);
+  const remainder = availablePoints % POINTS_PER_STAMP;
+
+  const handleConvert = async () => {
+    if (possibleStamps === 0) return;
+    try {
+      setConverting(true);
+      const res = await apiConvertPointsToStamp(selectedMerchant, POINTS_PER_STAMP);
+      setResult(res);
+      setTimeout(() => setResult(null), 3000);
+    } catch(e) {} finally { setConverting(false); }
+  };
+
+  const joinedMerchants = NEARBY_MERCHANTS.filter(m => (myMerchantPoints[m.id] || 0) > 0);
+
+  if (joinedMerchants.length === 0) return null;
+
+  return (
+    <View style={{ backgroundColor: C.white, borderRadius: 20, padding: 20, gap: 14,
+      shadowColor: C.primary, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2,
+      borderWidth: 1.5, borderColor: C.primary }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Text style={{ fontSize: 16 }}>🔄</Text>
+        <Text style={{ fontSize: 16, fontWeight: '700', color: C.textPrimary }}>
+          حوّل نقاطك إلى طوابع
+        </Text>
+      </View>
+
+      {/* Merchant selector */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -4 }}>
+        <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 4 }}>
+          {joinedMerchants.map(m => (
+            <TouchableOpacity key={m.id} onPress={() => setSelectedMerchant(m.id)}
+              style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 99,
+                backgroundColor: selectedMerchant === m.id ? C.primary : C.primarySurface,
+                borderWidth: 1.5, borderColor: selectedMerchant === m.id ? C.primary : C.border }}>
+              <Text style={{ fontSize: 13, fontWeight: '600',
+                color: selectedMerchant === m.id ? C.white : C.primary }}>
+                {CATEGORY_ICONS[m.category]} {m.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </ScrollView>
+
+      {/* Preview */}
+      <View style={{ backgroundColor: C.primarySurface, borderRadius: 14, padding: 16, gap: 10 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <Text style={{ fontSize: 14, color: C.textSecondary }}>نقاطك المتاحة</Text>
+          <Text style={{ fontSize: 16, fontWeight: '700', color: C.primary }}>{availablePoints} نقطة</Text>
+        </View>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <Text style={{ fontSize: 14, color: C.textSecondary }}>معدل التحويل</Text>
+          <Text style={{ fontSize: 14, fontWeight: '600', color: C.textPrimary }}>{POINTS_PER_STAMP} نقطة = طابع</Text>
+        </View>
+        <View style={{ height: 1, backgroundColor: C.border }} />
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <Text style={{ fontSize: 14, color: C.textSecondary }}>الباقي (يُحفظ)</Text>
+          <Text style={{ fontSize: 14, fontWeight: '600', color: C.accent }}>{remainder} نقطة</Text>
+        </View>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <Text style={{ fontSize: 16, fontWeight: '700', color: C.primary }}>ستحصل على</Text>
+          <Text style={{ fontSize: 22, fontWeight: '900', color: C.primary }}>{possibleStamps} طابع</Text>
+        </View>
+      </View>
+
+      {/* Result */}
+      {result && (
+        <View style={{ backgroundColor: '#F0FDF4', borderRadius: 12, padding: 14,
+          flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <Text style={{ fontSize: 24 }}>✅</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 15, fontWeight: '700', color: '#16A34A' }}>
+              تم إضافة {result.stampsAdded} طابع
+            </Text>
+            <Text style={{ fontSize: 13, color: C.textSecondary }}>
+              الباقي المحفوظ: {result.remainingPoints} نقطة
+            </Text>
+          </View>
+        </View>
+      )}
+
+      <TouchableOpacity onPress={handleConvert} disabled={possibleStamps === 0 || converting}
+        activeOpacity={0.85}
+        style={{ backgroundColor: possibleStamps > 0 ? C.primary : C.border,
+          borderRadius: 14, padding: 16, alignItems: 'center' }}>
+        {converting
+          ? <ActivityIndicator color={C.white} />
+          : <Text style={{ fontSize: 16, fontWeight: '700',
+              color: possibleStamps > 0 ? C.white : C.textMuted }}>
+              {possibleStamps > 0 ? `حوّل الآن ← ${possibleStamps} طابع` : 'نقاط غير كافية'}
+            </Text>}
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 // ─── SCREEN: POINTS WALLET ────────────────────────────────────────────────────
 function PointsWalletScreen({ navigate }) {
   const [zidmePoints, setZidmePoints] = useState(myZidmePoints);
@@ -1355,6 +1503,9 @@ function PointsWalletScreen({ navigate }) {
             </Text>
           )}
         </View>
+
+        {/* Convert Points to Stamps */}
+        <ConvertPointsSection navigate={navigate} />
 
         {/* Referral */}
         <View style={{ backgroundColor: C.white, borderRadius: 20, padding: 20, gap: 14,
