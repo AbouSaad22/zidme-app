@@ -527,10 +527,11 @@ export default function App() {
     <View style={{ flex: 1 }}>
       {screens[screen]}
       {/* Dev nav bar */}
-      <View style={{ flexDirection: 'row', backgroundColor: C.primary, paddingBottom: 8, paddingTop: 4 }}>
-        {[['Entry','CustomerEntry'],['Login','PhoneLogin'],['OTP','OTPVerification'],['Card','StampCard'],['✅','StampSuccess'],['🏆','RewardReady']].map(([label, name]) => (
-          <TouchableOpacity key={name} onPress={() => navigate(name)} style={{ flex: 1, alignItems: 'center', paddingVertical: 6 }}>
-            <Text style={{ fontSize: 10, color: screen === name ? C.accent : 'rgba(255,255,255,0.5)', fontWeight: screen === name ? '700' : '400' }}>{label}</Text>
+      <View style={{ flexDirection: 'row', backgroundColor: C.primary, paddingBottom: 28, paddingTop: 10, borderTopWidth: 1, borderTopColor: C.primaryLight }}>
+        {[['دخول','CustomerEntry'],['هاتف','PhoneLogin'],['OTP','OTPVerification'],['طوابع','StampCard'],['نجاح','StampSuccess'],['هدية','RewardReady']].map(([label, name]) => (
+          <TouchableOpacity key={name} onPress={() => navigate(name)} style={{ flex: 1, alignItems: 'center', paddingVertical: 10, minHeight: 50 }}>
+            <Text style={{ fontSize: 13, color: screen === name ? C.accent : 'rgba(255,255,255,0.6)', fontWeight: screen === name ? '700' : '400', textAlign: 'center' }}>{label}</Text>
+            {screen === name && <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: C.accent, marginTop: 3 }} />}
           </TouchableOpacity>
         ))}
       </View>
