@@ -1505,8 +1505,77 @@ function AddPointsScreen({ navigate }) {
 // ─── NAV BAR ──────────────────────────────────────────────────────────────────
 // No global nav bar - each screen navigates naturally
 
+// ─── EXIT MODAL ───────────────────────────────────────────────────────────────
+function ExitModal({ visible, role, onClose, onSwitchRole, onLogout }) {
+  return (
+    <Modal visible={visible} transparent animationType="fade">
+      <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'flex-end' }} onPress={onClose} activeOpacity={1}>
+        <View style={{ backgroundColor: C.white, borderTopLeftRadius: 24,
+          borderTopRightRadius: 24, padding: 24, gap: 12, paddingBottom: 36 }}>
+
+          {/* Header */}
+          <View style={{ alignItems: 'center', marginBottom: 4 }}>
+            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: C.border }} />
+          </View>
+          <Text style={{ fontSize: 18, fontWeight: '700', color: C.textPrimary, textAlign: 'center' }}>
+            خيارات الحساب
+          </Text>
+
+          {/* Current role indicator */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+            gap: 8, backgroundColor: C.primarySurface, borderRadius: 12, padding: 12 }}>
+            <Text style={{ fontSize: 20 }}>{role === 'customer' ? '🛍️' : '🏪'}</Text>
+            <Text style={{ fontSize: 14, color: C.primary, fontWeight: '600' }}>
+              أنت الآن في وضع {role === 'customer' ? 'الزبون' : 'التاجر'}
+            </Text>
+          </View>
+
+          {/* Switch role */}
+          <TouchableOpacity onPress={onSwitchRole} activeOpacity={0.85}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 14,
+              backgroundColor: C.white, borderRadius: 16, padding: 18,
+              borderWidth: 1.5, borderColor: C.border }}>
+            <Text style={{ fontSize: 28 }}>{role === 'customer' ? '🏪' : '🛍️'}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 16, fontWeight: '600', color: C.textPrimary, textAlign: 'right' }}>
+                التبديل إلى {role === 'customer' ? 'وضع التاجر' : 'وضع الزبون'}
+              </Text>
+              <Text style={{ fontSize: 13, color: C.textMuted, textAlign: 'right' }}>
+                نفس الحساب — دور مختلف
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* Logout */}
+          <TouchableOpacity onPress={onLogout} activeOpacity={0.85}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 14,
+              backgroundColor: '#FFF5F5', borderRadius: 16, padding: 18,
+              borderWidth: 1.5, borderColor: '#FEE2E2' }}>
+            <Text style={{ fontSize: 28 }}>🚪</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 16, fontWeight: '600', color: C.error, textAlign: 'right' }}>
+                تسجيل الخروج
+              </Text>
+              <Text style={{ fontSize: 13, color: C.textMuted, textAlign: 'right' }}>
+                العودة لشاشة الدخول
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* Cancel */}
+          <TouchableOpacity onPress={onClose} activeOpacity={0.7}
+            style={{ padding: 14, alignItems: 'center' }}>
+            <Text style={{ fontSize: 15, color: C.textMuted, fontWeight: '600' }}>إلغاء</Text>
+          </TouchableOpacity>
+        </View>
+      </TouchableOpacity>
+    </Modal>
+  );
+}
+
 // ─── CUSTOMER TAB BAR ─────────────────────────────────────────────────────────
-function CustomerTabBar({ active, navigate }) {
+function CustomerTabBar({ active, navigate, onMenuPress }) {
   const tabs = [
     { label: 'محلات', screen: 'Nearby', icon: '📍' },
     { label: 'طوابعي', screen: 'StampCard', icon: '🏷️' },
@@ -1527,12 +1596,18 @@ function CustomerTabBar({ active, navigate }) {
           )}
         </TouchableOpacity>
       ))}
+      {/* Account button */}
+      <TouchableOpacity onPress={onMenuPress}
+        style={{ flex: 1, alignItems: 'center', gap: 4 }} activeOpacity={0.7}>
+        <Text style={{ fontSize: 26 }}>👤</Text>
+        <Text style={{ fontSize: 12, color: C.textMuted }}>حسابي</Text>
+      </TouchableOpacity>
     </View>
   );
 }
 
 // ─── MERCHANT TAB BAR ─────────────────────────────────────────────────────────
-function MerchantTabBar({ active, navigate }) {
+function MerchantTabBar({ active, navigate, onMenuPress }) {
   const tabs = [
     { label: 'لوحة التحكم', screen: 'Dashboard', icon: '📊' },
     { label: 'الكاشير', screen: 'CashierQueue', icon: '⚡' },
@@ -1553,6 +1628,12 @@ function MerchantTabBar({ active, navigate }) {
           )}
         </TouchableOpacity>
       ))}
+      {/* Account button */}
+      <TouchableOpacity onPress={onMenuPress}
+        style={{ flex: 1, alignItems: 'center', gap: 4 }} activeOpacity={0.7}>
+        <Text style={{ fontSize: 26 }}>👤</Text>
+        <Text style={{ fontSize: 11, color: C.textMuted, textAlign: 'center' }}>حسابي</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -1565,7 +1646,8 @@ const AUTH_SCREENS = ['PhoneLogin', 'OTP', 'RoleSelect'];
 export default function App() {
   const [screen, setScreen] = useState('PhoneLogin');
   const [params, setParams] = useState({});
-  const [role, setRole] = useState(null); // 'customer' | 'merchant'
+  const [role, setRole] = useState(null);
+  const [showExitModal, setShowExitModal] = useState(false);
 
   const navigate = (name, p = {}) => {
     if (name === 'RoleSelect') setRole(null);
@@ -1573,6 +1655,17 @@ export default function App() {
     if (MERCHANT_SCREENS.includes(name) || name === 'MerchantSetup') setRole('merchant');
     setScreen(name);
     setParams(p);
+  };
+
+  const handleSwitchRole = () => {
+    setShowExitModal(false);
+    setTimeout(() => navigate('RoleSelect'), 300);
+  };
+
+  const handleLogout = () => {
+    setShowExitModal(false);
+    setRole(null);
+    setTimeout(() => navigate('PhoneLogin'), 300);
   };
 
   const showCustomerTab = role === 'customer' && CUSTOMER_SCREENS.includes(screen);
@@ -1599,8 +1692,21 @@ export default function App() {
   return (
     <View style={{ flex: 1 }}>
       {screens[screen] || screens['PhoneLogin']}
-      {showCustomerTab && <CustomerTabBar active={screen} navigate={navigate} />}
-      {showMerchantTab && <MerchantTabBar active={screen} navigate={navigate} />}
+      {showCustomerTab && (
+        <CustomerTabBar active={screen} navigate={navigate}
+          onMenuPress={() => setShowExitModal(true)} />
+      )}
+      {showMerchantTab && (
+        <MerchantTabBar active={screen} navigate={navigate}
+          onMenuPress={() => setShowExitModal(true)} />
+      )}
+      <ExitModal
+        visible={showExitModal}
+        role={role}
+        onClose={() => setShowExitModal(false)}
+        onSwitchRole={handleSwitchRole}
+        onLogout={handleLogout}
+      />
     </View>
   );
 }
