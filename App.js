@@ -417,7 +417,7 @@ function RoleSelectScreen({ navigate }) {
 
 // ─── SCREEN: MERCHANT SETUP ───────────────────────────────────────────────────
 function MerchantSetupScreen({ navigate }) {
-  const [step, setStep] = useState(1); // 1=name, 2=category, 3=reward
+  const [step, setStep] = useState(1);
   const [name, setName] = useState('');
   const [category, setCategory] = useState(null);
   const [rewardLabel, setRewardLabel] = useState('');
@@ -437,116 +437,91 @@ function MerchantSetupScreen({ navigate }) {
     finally { setLoading(false); }
   };
 
-  // Step 1: Store name
-  if (step === 1) return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: C.background }}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <View style={{ flex: 1, padding: 24, gap: 24 }}>
-          {/* Progress */}
-          <View style={{ gap: 8 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <Text style={{ fontSize: 13, color: C.textMuted }}>الخطوة 1 من 3</Text>
-              <Text style={{ fontSize: 13, color: C.primary, fontWeight: '600' }}>معلومات المحل</Text>
-            </View>
-            <View style={{ height: 4, backgroundColor: C.border, borderRadius: 99 }}>
-              <View style={{ width: '33%', height: '100%', backgroundColor: C.primary, borderRadius: 99 }} />
-            </View>
-          </View>
-
-          <View style={{ flex: 1, justifyContent: 'center', gap: 24 }}>
-            <View style={{ alignItems: 'center', gap: 8 }}>
-              <Text style={{ fontSize: 40 }}>🏪</Text>
-              <Text style={{ fontSize: 22, fontWeight: '700', color: C.textPrimary }}>ما اسم محلك؟</Text>
-            </View>
-            <TextInput
-              value={name} onChangeText={setName}
-              placeholder="مثال: كافيه الأصيل" placeholderTextColor={C.textMuted}
-              style={{ borderWidth: 1.5, borderColor: C.border, borderRadius: 14, padding: 16,
-                fontSize: 18, color: C.textPrimary, backgroundColor: C.white, textAlign: 'right' }}
-              maxLength={40} autoFocus
-            />
-            <Btn label="التالي" onPress={() => setStep(2)} disabled={name.trim().length < 2} />
-          </View>
-        </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
-  );
-
-  // Step 2: Category
-  if (step === 2) return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: C.background }}>
-      <View style={{ flex: 1, padding: 24, gap: 24 }}>
-        <View style={{ gap: 8 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-            <Text style={{ fontSize: 13, color: C.textMuted }}>الخطوة 2 من 3</Text>
-            <Text style={{ fontSize: 13, color: C.primary, fontWeight: '600' }}>صنف المحل</Text>
-          </View>
-          <View style={{ height: 4, backgroundColor: C.border, borderRadius: 99 }}>
-            <View style={{ width: '66%', height: '100%', backgroundColor: C.primary, borderRadius: 99 }} />
-          </View>
-        </View>
-
-        <View style={{ flex: 1, justifyContent: 'center', gap: 16 }}>
-          <Text style={{ fontSize: 22, fontWeight: '700', color: C.textPrimary, textAlign: 'center' }}>
-            ما صنف محلك؟
-          </Text>
-          <Text style={{ fontSize: 14, color: C.textSecondary, textAlign: 'center' }}>
-            سيحدد التصميم والإعدادات الافتراضية
-          </Text>
-
-          {Object.entries(CATEGORY_ICONS).map(([key, icon]) => (
-            <TouchableOpacity key={key} onPress={() => setCategory(key)} activeOpacity={0.85}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 16, padding: 20, borderRadius: 16,
-                backgroundColor: category === key ? C.primary : C.white,
-                borderWidth: 2, borderColor: category === key ? C.primary : C.border }}>
-              <Text style={{ fontSize: 36 }}>{icon}</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 18, fontWeight: '700', color: category === key ? C.white : C.textPrimary }}>
-                  {CATEGORY_NAMES[key]}
-                </Text>
-                <Text style={{ fontSize: 13, color: category === key ? 'rgba(255,255,255,0.7)' : C.textMuted }}>
-                  {CATEGORY_STAMPS[key]} طوابع افتراضية
-                </Text>
-              </View>
-              {category === key && <Text style={{ fontSize: 20 }}>✅</Text>}
-            </TouchableOpacity>
-          ))}
-
-          <View style={{ flexDirection: 'row', gap: 12 }}>
-            <Btn label="رجوع" onPress={() => setStep(1)} variant="ghost" style={{ flex: 1 }} />
-            <Btn label="التالي" onPress={() => { setStamps(CATEGORY_STAMPS[category]); setStep(3); }}
-              disabled={!category} style={{ flex: 2 }} />
-          </View>
-        </View>
+  const ProgressBar = ({ current, total, label }) => (
+    <View style={{ gap: 8 }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+        <Text style={{ fontSize: 13, color: C.textMuted }}>الخطوة {current} من {total}</Text>
+        <Text style={{ fontSize: 13, color: C.primary, fontWeight: '600' }}>{label}</Text>
       </View>
-    </SafeAreaView>
+      <View style={{ height: 4, backgroundColor: C.border, borderRadius: 99 }}>
+        <View style={{ width: `${(current/total)*100}%`, height: '100%', backgroundColor: C.primary, borderRadius: 99 }} />
+      </View>
+    </View>
   );
 
-  // Step 3: Reward setup
+  // ── Step 1 ──
+  if (step === 1) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: C.background }}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <View style={{ flex: 1, padding: 24, gap: 24 }}>
+            <ProgressBar current={1} total={3} label="معلومات المحل" />
+            <View style={{ flex: 1, justifyContent: 'center', gap: 24 }}>
+              <View style={{ alignItems: 'center', gap: 8 }}>
+                <Text style={{ fontSize: 40 }}>🏪</Text>
+                <Text style={{ fontSize: 22, fontWeight: '700', color: C.textPrimary }}>ما اسم محلك؟</Text>
+              </View>
+              <TextInput value={name} onChangeText={setName}
+                placeholder="مثال: كافيه الأصيل" placeholderTextColor={C.textMuted}
+                style={{ borderWidth: 1.5, borderColor: C.border, borderRadius: 14, padding: 16,
+                  fontSize: 18, color: C.textPrimary, backgroundColor: C.white, textAlign: 'right' }}
+                maxLength={40} autoFocus />
+              <Btn label="التالي" onPress={() => setStep(2)} disabled={name.trim().length < 2} />
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    );
+  }
+
+  // ── Step 2 ──
+  if (step === 2) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: C.background }}>
+        <View style={{ flex: 1, padding: 24, gap: 24 }}>
+          <ProgressBar current={2} total={3} label="صنف المحل" />
+          <View style={{ flex: 1, justifyContent: 'center', gap: 16 }}>
+            <Text style={{ fontSize: 22, fontWeight: '700', color: C.textPrimary, textAlign: 'center' }}>ما صنف محلك؟</Text>
+            <Text style={{ fontSize: 14, color: C.textSecondary, textAlign: 'center' }}>سيحدد التصميم والإعدادات الافتراضية</Text>
+            {Object.entries(CATEGORY_ICONS).map(([key, icon]) => (
+              <TouchableOpacity key={key} onPress={() => setCategory(key)} activeOpacity={0.85}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 16, padding: 20, borderRadius: 16,
+                  backgroundColor: category === key ? C.primary : C.white,
+                  borderWidth: 2, borderColor: category === key ? C.primary : C.border }}>
+                <Text style={{ fontSize: 36 }}>{icon}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: category === key ? C.white : C.textPrimary }}>
+                    {CATEGORY_NAMES[key]}
+                  </Text>
+                  <Text style={{ fontSize: 13, color: category === key ? 'rgba(255,255,255,0.7)' : C.textMuted }}>
+                    {CATEGORY_STAMPS[key]} طوابع افتراضية
+                  </Text>
+                </View>
+                {category === key && <Text style={{ fontSize: 20 }}>✅</Text>}
+              </TouchableOpacity>
+            ))}
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <Btn label="رجوع" onPress={() => setStep(1)} variant="ghost" style={{ flex: 1 }} />
+              <Btn label="التالي" onPress={() => { setStamps(CATEGORY_STAMPS[category]); setStep(3); }}
+                disabled={!category} style={{ flex: 2 }} />
+            </View>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ── Step 3 ──
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: C.background }}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <LoadingModal visible={loading} message="جارٍ إنشاء المحل..." />
         <ScrollView contentContainerStyle={{ padding: 24, gap: 20 }}>
-          <View style={{ gap: 8 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <Text style={{ fontSize: 13, color: C.textMuted }}>الخطوة 3 من 3</Text>
-              <Text style={{ fontSize: 13, color: C.primary, fontWeight: '600' }}>إعداد الهدية</Text>
-            </View>
-            <View style={{ height: 4, backgroundColor: C.border, borderRadius: 99 }}>
-              <View style={{ width: '100%', height: '100%', backgroundColor: C.primary, borderRadius: 99 }} />
-            </View>
-          </View>
+          <ProgressBar current={3} total={3} label="إعداد الهدية" />
+          <Text style={{ fontSize: 22, fontWeight: '700', color: C.textPrimary, textAlign: 'center' }}>ما هي الهدية؟</Text>
 
-          <Text style={{ fontSize: 22, fontWeight: '700', color: C.textPrimary, textAlign: 'center' }}>
-            ما هي الهدية؟
-          </Text>
-
-          {/* Reward label */}
           <View style={{ gap: 8 }}>
-            <Text style={{ fontSize: 14, fontWeight: '600', color: C.textPrimary, textAlign: 'right' }}>
-              نص الهدية
-            </Text>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: C.textPrimary, textAlign: 'right' }}>نص الهدية</Text>
             <TextInput value={rewardLabel} onChangeText={setRewardLabel}
               placeholder="مثال: قهوة مجانية" placeholderTextColor={C.textMuted}
               style={{ borderWidth: 1.5, borderColor: C.border, borderRadius: 14, padding: 16,
@@ -554,34 +529,26 @@ function MerchantSetupScreen({ navigate }) {
               maxLength={60} />
           </View>
 
-          {/* Stamps count */}
           <View style={{ gap: 8 }}>
             <Text style={{ fontSize: 14, fontWeight: '600', color: C.textPrimary, textAlign: 'right' }}>
               عدد الطوابع المطلوبة: {stamps}
             </Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, justifyContent: 'center' }}>
               <TouchableOpacity onPress={() => setStamps(s => Math.max(3, s - 1))}
-                style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: C.border,
-                  alignItems: 'center', justifyContent: 'center' }}>
+                style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: C.border, alignItems: 'center', justifyContent: 'center' }}>
                 <Text style={{ fontSize: 24, fontWeight: '700', color: C.textPrimary }}>-</Text>
               </TouchableOpacity>
-              <Text style={{ fontSize: 40, fontWeight: '900', color: C.primary, width: 60, textAlign: 'center' }}>
-                {stamps}
-              </Text>
+              <Text style={{ fontSize: 40, fontWeight: '900', color: C.primary, width: 60, textAlign: 'center' }}>{stamps}</Text>
               <TouchableOpacity onPress={() => setStamps(s => Math.min(15, s + 1))}
-                style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: C.primary,
-                  alignItems: 'center', justifyContent: 'center' }}>
+                style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center' }}>
                 <Text style={{ fontSize: 24, fontWeight: '700', color: C.white }}>+</Text>
               </TouchableOpacity>
             </View>
             <Text style={{ fontSize: 12, color: C.textMuted, textAlign: 'center' }}>بين 3 و 15 طابع</Text>
           </View>
 
-          {/* Strategy */}
           <View style={{ gap: 8 }}>
-            <Text style={{ fontSize: 14, fontWeight: '600', color: C.textPrimary, textAlign: 'right' }}>
-              قاعدة المنح
-            </Text>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: C.textPrimary, textAlign: 'right' }}>قاعدة المنح</Text>
             {[
               { key: 'PER_VISIT', label: 'كل زيارة مؤهلة', desc: 'طابع لكل زيارة يؤكدها الكاشير', icon: '🚶' },
               { key: 'MIN_PURCHASE', label: 'شراء بحد أدنى', desc: 'طابع عند شراء فوق مبلغ معين', icon: '💰' },
@@ -615,10 +582,9 @@ function MerchantSetupScreen({ navigate }) {
             </View>
           )}
 
-          {/* Points per stamp */}
           <View style={{ gap: 8 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Text style={{ fontSize: 13, color: C.textMuted }}>نقطة = طابع واحد</Text>
+              <Text style={{ fontSize: 13, color: C.textMuted }}>{pointsPerStamp} نقطة = طابع</Text>
               <Text style={{ fontSize: 14, fontWeight: '600', color: C.textPrimary, textAlign: 'right' }}>
                 تحويل النقاط إلى طوابع
               </Text>
@@ -626,8 +592,7 @@ function MerchantSetupScreen({ navigate }) {
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, justifyContent: 'center',
               backgroundColor: C.white, borderRadius: 14, padding: 16, borderWidth: 1.5, borderColor: C.border }}>
               <TouchableOpacity onPress={() => setPointsPerStamp(p => Math.max(10, p - 10))}
-                style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: C.border,
-                  alignItems: 'center', justifyContent: 'center' }}>
+                style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: C.border, alignItems: 'center', justifyContent: 'center' }}>
                 <Text style={{ fontSize: 22, fontWeight: '700', color: C.textPrimary }}>-</Text>
               </TouchableOpacity>
               <View style={{ alignItems: 'center' }}>
@@ -635,14 +600,13 @@ function MerchantSetupScreen({ navigate }) {
                 <Text style={{ fontSize: 12, color: C.textMuted }}>نقطة = طابع</Text>
               </View>
               <TouchableOpacity onPress={() => setPointsPerStamp(p => Math.min(500, p + 10))}
-                style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: C.primary,
-                  alignItems: 'center', justifyContent: 'center' }}>
+                style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center' }}>
                 <Text style={{ fontSize: 22, fontWeight: '700', color: C.white }}>+</Text>
               </TouchableOpacity>
             </View>
             <View style={{ backgroundColor: C.accentLight, borderRadius: 10, padding: 10 }}>
               <Text style={{ fontSize: 12, color: C.primary, textAlign: 'center' }}>
-                💡 الزبون يحول نقاطه إلى طوابع متى أراد — الباقي يبقى محفوظاً
+                الزبون يحول نقاطه إلى طوابع متى أراد — الباقي يبقى محفوظاً
               </Text>
             </View>
           </View>
