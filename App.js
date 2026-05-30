@@ -958,12 +958,13 @@ function CustomerEntryScreen({ navigate }) {
 
 // ─── SCREEN: STAMP CARD ───────────────────────────────────────────────────────
 function StampCardScreen({ navigate, params }) {
-  const merchant = mockMerchant || { name: 'كافيه الأصيل', category: 'CAFE' };
+  const merchant = params?.merchant || mockMerchant || { name: 'كافيه الأصيل', category: 'CAFE' };
   const category = merchant.category || 'CAFE';
-  const [stamps, setStamps] = useState(mockStamps);
+  const merchantStamps = params?.merchant ? (params.merchant.stamps || 0) : mockStamps;
+  const [stamps, setStamps] = useState(merchantStamps);
   const [loading, setLoading] = useState(false);
   const [waiting, setWaiting] = useState(false);
-  const required = mockProgram?.requiredStamps || REQUIRED;
+  const required = params?.merchant?.required || mockProgram?.requiredStamps || REQUIRED;
   const remaining = required - stamps;
 
   const requestStamp = async () => {
@@ -1009,7 +1010,7 @@ function StampCardScreen({ navigate, params }) {
           borderRadius: 14, padding: 14, borderWidth: 1, borderColor: C.accent }}>
           <Text style={{ fontSize: 26 }}>🎁</Text>
           <Text style={{ fontSize: 16, fontWeight: '700', color: C.textPrimary, flex: 1 }}>
-            {mockProgram?.rewardLabel || REWARD_LABEL}
+            {params?.merchant ? `هدية من ${merchant.name}` : (mockProgram?.rewardLabel || REWARD_LABEL)}
           </Text>
         </View>
         <Btn label="اطلب طابعاً" onPress={requestStamp} loading={loading} />
