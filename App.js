@@ -1063,14 +1063,14 @@ function RewardReadyScreen({ navigate }) {
 
 // ─── NAV BAR ──────────────────────────────────────────────────────────────────
 const NAV_ITEMS = [
-  { label: 'دخول', screen: 'PhoneLogin' },
-  { label: 'الدور', screen: 'RoleSelect' },
-  { label: 'تاجر', screen: 'MerchantSetup' },
-  { label: 'QR', screen: 'QRPoster' },
-  { label: 'لوحة', screen: 'Dashboard' },
-  { label: 'كاشير', screen: 'CashierQueue' },
-  { label: 'طوابع', screen: 'StampCard' },
-  { label: 'هدية', screen: 'RewardReady' },
+  { label: 'دخول', screen: 'PhoneLogin', icon: '📱' },
+  { label: 'الدور', screen: 'RoleSelect', icon: '👤' },
+  { label: 'تاجر', screen: 'MerchantSetup', icon: '🏪' },
+  { label: 'QR', screen: 'QRPoster', icon: '📋' },
+  { label: 'لوحة', screen: 'Dashboard', icon: '📊' },
+  { label: 'كاشير', screen: 'CashierQueue', icon: '⚡' },
+  { label: 'طوابع', screen: 'StampCard', icon: '🏷️' },
+  { label: 'هدية', screen: 'RewardReady', icon: '🏆' },
 ];
 
 // ─── APP ──────────────────────────────────────────────────────────────────────
@@ -1099,17 +1099,21 @@ export default function App() {
     <View style={{ flex: 1 }}>
       {screens[screen] || screens['PhoneLogin']}
       {/* Nav Bar */}
-      <View style={{ flexDirection: 'row', backgroundColor: C.primary,
-        paddingBottom: 24, paddingTop: 8, borderTopWidth: 1, borderTopColor: C.primaryLight }}>
-        {NAV_ITEMS.map(({ label, screen: s }) => (
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}
+        style={{ backgroundColor: C.primary, borderTopWidth: 1, borderTopColor: C.primaryLight }}
+        contentContainerStyle={{ paddingBottom: 28, paddingTop: 10, paddingHorizontal: 8 }}>
+        {NAV_ITEMS.map(({ label, screen: s, icon }) => (
           <TouchableOpacity key={s} onPress={() => navigate(s)}
-            style={{ flex: 1, alignItems: 'center', paddingVertical: 8 }}>
-            <Text style={{ fontSize: 10, color: screen === s ? C.accent : 'rgba(255,255,255,0.45)',
-              fontWeight: screen === s ? '700' : '400', textAlign: 'center' }}>{label}</Text>
-            {screen === s && <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: C.accent, marginTop: 3 }} />}
+            style={{ alignItems: 'center', paddingVertical: 8, paddingHorizontal: 14, minWidth: 68,
+              backgroundColor: screen === s ? 'rgba(245,166,35,0.15)' : 'transparent',
+              borderRadius: 12, marginHorizontal: 2 }}>
+            <Text style={{ fontSize: 22 }}>{icon}</Text>
+            <Text style={{ fontSize: 11, color: screen === s ? C.accent : 'rgba(255,255,255,0.5)',
+              fontWeight: screen === s ? '700' : '400', textAlign: 'center', marginTop: 4 }}>{label}</Text>
+            {screen === s && <View style={{ width: 20, height: 3, borderRadius: 2, backgroundColor: C.accent, marginTop: 4 }} />}
           </TouchableOpacity>
         ))}
-      </View>
+      </ScrollView>
     </View>
   );
 }
