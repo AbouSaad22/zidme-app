@@ -1503,25 +1503,80 @@ function AddPointsScreen({ navigate }) {
 }
 
 // ─── NAV BAR ──────────────────────────────────────────────────────────────────
-const NAV_ITEMS = [
-  { label: 'دخول', screen: 'PhoneLogin', icon: '📱' },
-  { label: 'الدور', screen: 'RoleSelect', icon: '👤' },
-  { label: 'قريبة', screen: 'Nearby', icon: '📍' },
-  { label: 'نقاطي', screen: 'PointsWallet', icon: '⭐' },
-  { label: 'تاجر', screen: 'MerchantSetup', icon: '🏪' },
-  { label: 'لوحة', screen: 'Dashboard', icon: '📊' },
-  { label: 'كاشير', screen: 'CashierQueue', icon: '⚡' },
-  { label: 'نقاط+', screen: 'AddPoints', icon: '💰' },
-  { label: 'طوابع', screen: 'StampCard', icon: '🏷️' },
-  { label: 'هدية', screen: 'RewardReady', icon: '🏆' },
-];
+// No global nav bar - each screen navigates naturally
+
+// ─── CUSTOMER TAB BAR ─────────────────────────────────────────────────────────
+function CustomerTabBar({ active, navigate }) {
+  const tabs = [
+    { label: 'محلات', screen: 'Nearby', icon: '📍' },
+    { label: 'طوابعي', screen: 'StampCard', icon: '🏷️' },
+    { label: 'نقاطي', screen: 'PointsWallet', icon: '⭐' },
+  ];
+  return (
+    <View style={{ flexDirection: 'row', backgroundColor: C.white,
+      borderTopWidth: 1, borderTopColor: C.border,
+      paddingBottom: 20, paddingTop: 8 }}>
+      {tabs.map(({ label, screen, icon }) => (
+        <TouchableOpacity key={screen} onPress={() => navigate(screen)}
+          style={{ flex: 1, alignItems: 'center', gap: 4 }} activeOpacity={0.7}>
+          <Text style={{ fontSize: 26 }}>{icon}</Text>
+          <Text style={{ fontSize: 12, fontWeight: active === screen ? '700' : '400',
+            color: active === screen ? C.primary : C.textMuted }}>{label}</Text>
+          {active === screen && (
+            <View style={{ width: 20, height: 3, borderRadius: 2, backgroundColor: C.primary }} />
+          )}
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+}
+
+// ─── MERCHANT TAB BAR ─────────────────────────────────────────────────────────
+function MerchantTabBar({ active, navigate }) {
+  const tabs = [
+    { label: 'لوحة التحكم', screen: 'Dashboard', icon: '📊' },
+    { label: 'الكاشير', screen: 'CashierQueue', icon: '⚡' },
+    { label: 'نقاط+', screen: 'AddPoints', icon: '💰' },
+  ];
+  return (
+    <View style={{ flexDirection: 'row', backgroundColor: C.white,
+      borderTopWidth: 1, borderTopColor: C.border,
+      paddingBottom: 20, paddingTop: 8 }}>
+      {tabs.map(({ label, screen, icon }) => (
+        <TouchableOpacity key={screen} onPress={() => navigate(screen)}
+          style={{ flex: 1, alignItems: 'center', gap: 4 }} activeOpacity={0.7}>
+          <Text style={{ fontSize: 26 }}>{icon}</Text>
+          <Text style={{ fontSize: 11, fontWeight: active === screen ? '700' : '400',
+            color: active === screen ? C.primary : C.textMuted, textAlign: 'center' }}>{label}</Text>
+          {active === screen && (
+            <View style={{ width: 20, height: 3, borderRadius: 2, backgroundColor: C.primary }} />
+          )}
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+}
 
 // ─── APP ──────────────────────────────────────────────────────────────────────
+const CUSTOMER_SCREENS = ['Nearby', 'StampCard', 'PointsWallet', 'CustomerEntry', 'StampSuccess', 'RewardReady'];
+const MERCHANT_SCREENS = ['Dashboard', 'CashierQueue', 'AddPoints', 'QRPoster', 'CashierConfirm'];
+const AUTH_SCREENS = ['PhoneLogin', 'OTP', 'RoleSelect'];
+
 export default function App() {
   const [screen, setScreen] = useState('PhoneLogin');
   const [params, setParams] = useState({});
+  const [role, setRole] = useState(null); // 'customer' | 'merchant'
 
-  const navigate = (name, p = {}) => { setScreen(name); setParams(p); };
+  const navigate = (name, p = {}) => {
+    if (name === 'RoleSelect') setRole(null);
+    if (CUSTOMER_SCREENS.includes(name)) setRole('customer');
+    if (MERCHANT_SCREENS.includes(name) || name === 'MerchantSetup') setRole('merchant');
+    setScreen(name);
+    setParams(p);
+  };
+
+  const showCustomerTab = role === 'customer' && CUSTOMER_SCREENS.includes(screen);
+  const showMerchantTab = role === 'merchant' && MERCHANT_SCREENS.includes(screen);
 
   const screens = {
     PhoneLogin: <PhoneLoginScreen navigate={navigate} params={params} />,
@@ -1544,23 +1599,8 @@ export default function App() {
   return (
     <View style={{ flex: 1 }}>
       {screens[screen] || screens['PhoneLogin']}
-      {/* Nav Bar - Grid 4x2 */}
-      <View style={{ backgroundColor: C.primary, borderTopWidth: 2, borderTopColor: C.primaryLight, paddingBottom: 32, paddingTop: 8, paddingHorizontal: 8 }}>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-          {NAV_ITEMS.map(({ label, screen: s, icon }) => (
-            <TouchableOpacity key={s} onPress={() => navigate(s)} activeOpacity={0.7}
-              style={{ width: '25%', alignItems: 'center', justifyContent: 'center',
-                paddingVertical: 14,
-                backgroundColor: screen === s ? 'rgba(245,166,35,0.2)' : 'transparent',
-                borderRadius: 12 }}>
-              <Text style={{ fontSize: 32 }}>{icon}</Text>
-              <Text style={{ fontSize: 13, color: screen === s ? C.accent : 'rgba(255,255,255,0.6)',
-                fontWeight: screen === s ? '800' : '500', marginTop: 6, textAlign: 'center' }}>{label}</Text>
-              {screen === s && <View style={{ width: 24, height: 3, borderRadius: 2, backgroundColor: C.accent, marginTop: 4 }} />}
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
+      {showCustomerTab && <CustomerTabBar active={screen} navigate={navigate} />}
+      {showMerchantTab && <MerchantTabBar active={screen} navigate={navigate} />}
     </View>
   );
 }
