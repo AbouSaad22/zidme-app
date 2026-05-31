@@ -115,6 +115,41 @@ async function apiConvertPointsToStamp(merchantId, pointsPerStamp) {
   return { stampsAdded: stampsToAdd, remainingPoints: remainder, newTotal: mockStamps };
 }
 
+// QR Token registry - maps token to merchant
+const QR_REGISTRY = {
+  'QR-CAFE-001': { merchantId: 'm1', name: 'كافيه الأصيل', category: 'CAFE', required: 6, rewardLabel: 'قهوة مجانية', pointsPerStamp: 50 },
+  'QR-PIZZA-001': { merchantId: 'm2', name: 'بيتزا زيدني', category: 'PIZZERIA', required: 8, rewardLabel: 'بيتزا مجانية', pointsPerStamp: 80 },
+  'QR-FF-001': { merchantId: 'm3', name: 'فاست فود برو', category: 'FAST_FOOD', required: 5, rewardLabel: 'وجبة مجانية', pointsPerStamp: 40 },
+  'QR-CAFE-002': { merchantId: 'm4', name: 'مقهى النجوم', category: 'CAFE', required: 6, rewardLabel: 'مشروب مجاني', pointsPerStamp: 50 },
+};
+
+// Customer QR tokens (for cashier to scan)
+const CUSTOMER_QR = { 'CUS-ABD-001': { customerId: 'cus-001', name: 'عبد الرحمن', phone: '0555123456' } };
+
+async function apiScanMerchantQR(token) {
+  await delay(600);
+  const merchant = QR_REGISTRY[token];
+  if (!merchant) throw { message: 'رمز QR غير صالح' };
+  const currentStamps = mockStamps;
+  const currentPoints = myMerchantPoints[merchant.merchantId] || 0;
+  return { merchant, currentStamps, currentPoints };
+}
+
+async function apiAddStampViaQR(merchantId) {
+  await delay(800);
+  mockStamps = Math.min(mockStamps + 1, REQUIRED);
+  const pts = 10;
+  myMerchantPoints[merchantId] = (myMerchantPoints[merchantId] || 0) + pts;
+  return { stampsAdded: 1, pointsAdded: pts, currentStamps: mockStamps, rewardReady: mockStamps >= REQUIRED };
+}
+
+async function apiScanCustomerQR(token, merchantId) {
+  await delay(600);
+  const customer = CUSTOMER_QR[token];
+  if (!customer) throw { message: 'رمز QR الزبون غير صالح' };
+  return { customer, merchantId };
+}
+
 // Mock customers for merchant
 const MOCK_CUSTOMERS = [
   { id: 'c1', name: 'أحمد بن علي', phone: '0551234567', points: 240, stamps: 3, lastVisit: 'منذ يومين' },
@@ -1139,6 +1174,233 @@ function RewardReadyScreen({ navigate }) {
 }
 
 
+// ─── SCREEN: QR SCANNER ──────────────────────────────────────────────────────
+function QRScannerScreen({ navigate, params }) {
+  const mode = params?.mode || 'customer'; // 'customer' | 'cashier'
+  const [scanning, setScanning] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState(null);
+  const [adding, setAdding] = useState(false);
+  const [done, setDone] = useState(null);
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const scanLineAnim = useRef(new Animated.Value(0)).current;
+
+  // QR codes to simulate
+  const MERCHANT_TOKENS = Object.keys(QR_REGISTRY);
+  const CUSTOMER_TOKENS = Object.keys(CUSTOMER_QR);
+
+  useEffect(() => {
+    // Pulse animation
+    Animated.loop(Animated.sequence([
+      Animated.timing(pulseAnim, { toValue: 1.05, duration: 800, useNativeDriver: true }),
+      Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
+    ])).start();
+    // Scan line animation
+    Animated.loop(Animated.timing(scanLineAnim, {
+      toValue: 1, duration: 2000, useNativeDriver: true,
+    })).start();
+  }, []);
+
+  const simulateScan = async (token) => {
+    setScanning(true);
+    setError(null);
+    await delay(800);
+    try {
+      if (mode === 'customer') {
+        const res = await apiScanMerchantQR(token);
+        setResult({ type: 'merchant', ...res, token });
+      } else {
+        const res = await apiScanCustomerQR(token, mockMerchant?.id || 'm1');
+        setResult({ type: 'customer', ...res, token });
+      }
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  const handleAddStamp = async () => {
+    if (!result) return;
+    try {
+      setAdding(true);
+      const res = await apiAddStampViaQR(result.merchant.merchantId);
+      setDone(res);
+    } finally {
+      setAdding(false); }
+  };
+
+  const handleAddPoints = async () => {
+    if (!result) return;
+    try {
+      setAdding(true);
+      await delay(700);
+      const pts = 20;
+      myMerchantPoints[result.merchant.merchantId] = (myMerchantPoints[result.merchant.merchantId] || 0) + pts;
+      setDone({ pointsAdded: pts, currentStamps: mockStamps });
+    } finally {
+      setAdding(false); }
+  };
+
+  const scanLineY = scanLineAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 200] });
+
+  // Done state
+  if (done) return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: done.rewardReady ? C.accent : '#F0FDF4', alignItems: 'center', justifyContent: 'center', gap: 20, padding: 24 }}>
+      <Text style={{ fontSize: 80 }}>{done.rewardReady ? '🏆' : done.stampsAdded ? '✅' : '⭐'}</Text>
+      <View style={{ alignItems: 'center', gap: 8 }}>
+        {done.stampsAdded && <Text style={{ fontSize: 26, fontWeight: '800', color: done.rewardReady ? C.primary : '#16A34A' }}>
+          {done.rewardReady ? 'هديتك جاهزة!' : 'تمت إضافة الطابع!'}
+        </Text>}
+        {done.pointsAdded && !done.stampsAdded && <Text style={{ fontSize: 26, fontWeight: '800', color: '#16A34A' }}>+{done.pointsAdded} نقطة</Text>}
+        <Text style={{ fontSize: 16, color: '#15803D' }}>الطوابع: {done.currentStamps} / {REQUIRED}</Text>
+        {done.pointsAdded && <Text style={{ fontSize: 14, color: '#4ADE80' }}>+{done.pointsAdded} نقطة مضافة</Text>}
+      </View>
+      <TouchableOpacity onPress={() => { setDone(null); setResult(null); setError(null); }}
+        style={{ backgroundColor: C.primary, borderRadius: 16, padding: 18, width: '100%', alignItems: 'center' }}>
+        <Text style={{ fontSize: 16, fontWeight: '700', color: C.white }}>مسح آخر</Text>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={() => navigate(mode === 'customer' ? 'StampCard' : 'CashierQueue')}
+        style={{ padding: 12 }}>
+        <Text style={{ fontSize: 15, color: C.textMuted }}>العودة</Text>
+      </TouchableOpacity>
+    </SafeAreaView>
+  );
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#0D0D0D' }}>
+      {/* Header */}
+      <View style={{ padding: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        <TouchableOpacity onPress={() => navigate(mode === 'customer' ? 'Nearby' : 'CashierQueue')}
+          style={{ backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 10, padding: 10 }}>
+          <Text style={{ fontSize: 16, color: C.white }}>✕</Text>
+        </TouchableOpacity>
+        <Text style={{ fontSize: 18, fontWeight: '700', color: C.white }}>
+          {mode === 'customer' ? 'امسح QR المحل' : 'امسح QR الزبون'}
+        </Text>
+        <View style={{ width: 40 }} />
+      </View>
+
+      {/* Camera viewfinder (simulated) */}
+      <View style={{ alignItems: 'center', padding: 24 }}>
+        <Animated.View style={{ transform: [{ scale: pulseAnim }],
+          width: 240, height: 240, position: 'relative' }}>
+          {/* Corner brackets */}
+          {[{top:0,left:0}, {top:0,right:0}, {bottom:0,left:0}, {bottom:0,right:0}].map((pos, i) => (
+            <View key={i} style={{ position: 'absolute', width: 40, height: 40, ...pos,
+              borderColor: C.accent, borderTopWidth: i < 2 ? 4 : 0, borderBottomWidth: i >= 2 ? 4 : 0,
+              borderLeftWidth: i % 2 === 0 ? 4 : 0, borderRightWidth: i % 2 === 1 ? 4 : 0 }} />
+          ))}
+          {/* Scan area */}
+          <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', margin: 2,
+            alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+            {/* Scan line */}
+            <Animated.View style={{ position: 'absolute', left: 0, right: 0, height: 2,
+              backgroundColor: C.accent, opacity: 0.8,
+              transform: [{ translateY: scanLineY }] }} />
+            {scanning
+              ? <ActivityIndicator size="large" color={C.accent} />
+              : <Text style={{ fontSize: 48, opacity: 0.3 }}>📷</Text>}
+          </View>
+        </Animated.View>
+
+        <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, marginTop: 16, textAlign: 'center' }}>
+          {scanning ? 'جارٍ المسح...' : 'وجّه الكاميرا نحو رمز QR'}
+        </Text>
+      </View>
+
+      {/* Error */}
+      {error && (
+        <View style={{ backgroundColor: '#7F1D1D', margin: 16, borderRadius: 12, padding: 14 }}>
+          <Text style={{ color: '#FCA5A5', textAlign: 'center', fontSize: 14 }}>{error}</Text>
+        </View>
+      )}
+
+      {/* Scan Result */}
+      {result && !done && (
+        <View style={{ backgroundColor: C.white, margin: 16, borderRadius: 20, padding: 20, gap: 14 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ backgroundColor: '#D1FAE5', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 }}>
+              <Text style={{ fontSize: 12, color: '#065F46', fontWeight: '700' }}>تم التعرف</Text>
+            </View>
+            {result.type === 'merchant' && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={{ fontSize: 18, fontWeight: '700', color: C.textPrimary }}>{result.merchant.name}</Text>
+                <Text style={{ fontSize: 28 }}>{CATEGORY_ICONS[result.merchant.category]}</Text>
+              </View>
+            )}
+            {result.type === 'customer' && (
+              <Text style={{ fontSize: 18, fontWeight: '700', color: C.textPrimary }}>{result.customer.name}</Text>
+            )}
+          </View>
+
+          {result.type === 'merchant' && (
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <View style={{ flex: 1, backgroundColor: C.primarySurface, borderRadius: 12, padding: 12, alignItems: 'center' }}>
+                <Text style={{ fontSize: 24, fontWeight: '900', color: C.primary }}>{result.currentStamps}</Text>
+                <Text style={{ fontSize: 11, color: C.textMuted }}>طوابعك</Text>
+              </View>
+              <View style={{ flex: 1, backgroundColor: C.accentLight, borderRadius: 12, padding: 12, alignItems: 'center' }}>
+                <Text style={{ fontSize: 24, fontWeight: '900', color: C.primary }}>{result.currentPoints}</Text>
+                <Text style={{ fontSize: 11, color: C.textMuted }}>نقاطك</Text>
+              </View>
+            </View>
+          )}
+
+          <View style={{ gap: 10 }}>
+            <TouchableOpacity onPress={handleAddStamp} disabled={adding}
+              style={{ backgroundColor: C.primary, borderRadius: 14, padding: 16, alignItems: 'center', opacity: adding ? 0.6 : 1 }}>
+              {adding ? <ActivityIndicator color={C.white} />
+                : <Text style={{ fontSize: 16, fontWeight: '700', color: C.white }}>
+                    {result.type === 'merchant' ? '+ إضافة طابع' : '+ طابع للزبون'}
+                  </Text>}
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleAddPoints} disabled={adding}
+              style={{ backgroundColor: C.accentLight, borderRadius: 14, padding: 14, alignItems: 'center',
+                borderWidth: 1.5, borderColor: C.accent, opacity: adding ? 0.6 : 1 }}>
+              <Text style={{ fontSize: 15, fontWeight: '600', color: C.primary }}>
+                {result.type === 'merchant' ? '+ إضافة نقاط' : '+ نقاط للزبون'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* Simulate QR buttons */}
+      {!result && !scanning && (
+        <View style={{ padding: 16, gap: 10 }}>
+          <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, textAlign: 'center' }}>
+            — محاكاة QR للتجربة —
+          </Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              {(mode === 'customer' ? MERCHANT_TOKENS : CUSTOMER_TOKENS).map(token => {
+                const info = mode === 'customer' ? QR_REGISTRY[token] : CUSTOMER_QR[token];
+                return (
+                  <TouchableOpacity key={token} onPress={() => simulateScan(token)}
+                    style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 14,
+                      padding: 14, alignItems: 'center', gap: 6, minWidth: 100,
+                      borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }}>
+                    <Text style={{ fontSize: 28 }}>
+                      {mode === 'customer' ? CATEGORY_ICONS[info.category] : '👤'}
+                    </Text>
+                    <Text style={{ fontSize: 12, color: C.white, fontWeight: '600', textAlign: 'center' }}>
+                      {mode === 'customer' ? info.name : info.name}
+                    </Text>
+                    <View style={{ backgroundColor: C.accent, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 }}>
+                      <Text style={{ fontSize: 10, color: C.primary, fontWeight: '700' }}>امسح</Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </ScrollView>
+        </View>
+      )}
+    </SafeAreaView>
+  );
+}
+
 // ─── SCREEN: NEARBY MERCHANTS ─────────────────────────────────────────────────
 function NearbyScreen({ navigate }) {
   const [merchants, setMerchants] = useState([]);
@@ -1997,6 +2259,16 @@ function CustomerTabBar({ active, navigate, onMenuPress }) {
           )}
         </TouchableOpacity>
       ))}
+      {/* QR Scan button */}
+      <TouchableOpacity onPress={() => navigate('QRScanner', { mode: 'customer' })}
+        style={{ flex: 1, alignItems: 'center', gap: 4 }} activeOpacity={0.7}>
+        <View style={{ backgroundColor: C.primary, borderRadius: 14, width: 42, height: 42,
+          alignItems: 'center', justifyContent: 'center', marginTop: -16,
+          shadowColor: C.primary, shadowOpacity: 0.4, shadowRadius: 8, elevation: 6 }}>
+          <Text style={{ fontSize: 22 }}>📷</Text>
+        </View>
+        <Text style={{ fontSize: 11, color: C.primary, fontWeight: '700', marginTop: 2 }}>مسح QR</Text>
+      </TouchableOpacity>
       {/* Account button */}
       <TouchableOpacity onPress={onMenuPress}
         style={{ flex: 1, alignItems: 'center', gap: 4 }} activeOpacity={0.7}>
@@ -2010,7 +2282,7 @@ function CustomerTabBar({ active, navigate, onMenuPress }) {
 // ─── MERCHANT TAB BAR ─────────────────────────────────────────────────────────
 function MerchantTabBar({ active, navigate, onMenuPress }) {
   const tabs = [
-    { label: 'لوحة التحكم', screen: 'Dashboard', icon: '📊' },
+    { label: 'لوحة', screen: 'Dashboard', icon: '📊' },
     { label: 'الكاشير', screen: 'CashierQueue', icon: '⚡' },
     { label: 'نقاط+', screen: 'AddPoints', icon: '💰' },
     { label: 'إهداء', screen: 'GiftPoints', icon: '🎁' },
@@ -2022,27 +2294,37 @@ function MerchantTabBar({ active, navigate, onMenuPress }) {
       {tabs.map(({ label, screen, icon }) => (
         <TouchableOpacity key={screen} onPress={() => navigate(screen)}
           style={{ flex: 1, alignItems: 'center', gap: 4 }} activeOpacity={0.7}>
-          <Text style={{ fontSize: 26 }}>{icon}</Text>
-          <Text style={{ fontSize: 11, fontWeight: active === screen ? '700' : '400',
+          <Text style={{ fontSize: 22 }}>{icon}</Text>
+          <Text style={{ fontSize: 10, fontWeight: active === screen ? '700' : '400',
             color: active === screen ? C.primary : C.textMuted, textAlign: 'center' }}>{label}</Text>
           {active === screen && (
-            <View style={{ width: 20, height: 3, borderRadius: 2, backgroundColor: C.primary }} />
+            <View style={{ width: 16, height: 3, borderRadius: 2, backgroundColor: C.primary }} />
           )}
         </TouchableOpacity>
       ))}
+      {/* QR Scan button */}
+      <TouchableOpacity onPress={() => navigate('QRScanner', { mode: 'cashier' })}
+        style={{ flex: 1, alignItems: 'center', gap: 4 }} activeOpacity={0.7}>
+        <View style={{ backgroundColor: C.accent, borderRadius: 14, width: 42, height: 42,
+          alignItems: 'center', justifyContent: 'center', marginTop: -16,
+          shadowColor: C.accent, shadowOpacity: 0.4, shadowRadius: 8, elevation: 6 }}>
+          <Text style={{ fontSize: 22 }}>📷</Text>
+        </View>
+        <Text style={{ fontSize: 10, color: C.primary, fontWeight: '700', marginTop: 2 }}>مسح QR</Text>
+      </TouchableOpacity>
       {/* Account button */}
       <TouchableOpacity onPress={onMenuPress}
         style={{ flex: 1, alignItems: 'center', gap: 4 }} activeOpacity={0.7}>
-        <Text style={{ fontSize: 26 }}>👤</Text>
-        <Text style={{ fontSize: 11, color: C.textMuted, textAlign: 'center' }}>حسابي</Text>
+        <Text style={{ fontSize: 22 }}>👤</Text>
+        <Text style={{ fontSize: 10, color: C.textMuted, textAlign: 'center' }}>حسابي</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
 // ─── APP ──────────────────────────────────────────────────────────────────────
-const CUSTOMER_SCREENS = ['Nearby', 'StampCard', 'PointsWallet', 'CustomerEntry', 'StampSuccess', 'RewardReady'];
-const MERCHANT_SCREENS = ['Dashboard', 'CashierQueue', 'AddPoints', 'GiftPoints', 'QRPoster', 'CashierConfirm'];
+const CUSTOMER_SCREENS = ['Nearby', 'StampCard', 'PointsWallet', 'CustomerEntry', 'StampSuccess', 'RewardReady', 'QRScanner'];
+const MERCHANT_SCREENS = ['Dashboard', 'CashierQueue', 'AddPoints', 'GiftPoints', 'QRPoster', 'CashierConfirm', 'QRScanner'];
 const AUTH_SCREENS = ['PhoneLogin', 'OTP', 'RoleSelect'];
 
 export default function App() {
@@ -2087,6 +2369,7 @@ export default function App() {
     PointsWallet: <PointsWalletScreen navigate={navigate} params={params} />,
     AddPoints: <AddPointsScreen navigate={navigate} params={params} />,
     GiftPoints: <GiftPointsScreen navigate={navigate} params={params} />,
+    QRScanner: <QRScannerScreen navigate={navigate} params={params} />,
     StampCard: <StampCardScreen navigate={navigate} params={params} />,
     StampSuccess: <StampSuccessScreen navigate={navigate} params={params} />,
     RewardReady: <RewardReadyScreen navigate={navigate} params={params} />,
