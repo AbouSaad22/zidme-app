@@ -1174,6 +1174,128 @@ function RewardReadyScreen({ navigate }) {
 }
 
 
+// ─── COMPONENT: QR SCAN RESULT ───────────────────────────────────────────────
+function QRScanResult({ result, adding, onAddStamp, onAddPoints }) {
+  const [purchaseAmount, setPurchaseAmount] = useState('');
+  const merchant = result.merchant || {};
+  const strategy = merchant.strategy || 'PER_VISIT';
+  const pointsPerStamp = merchant.pointsPerStamp || 50;
+  const isMinPurchase = strategy === 'MIN_PURCHASE';
+
+  // Calculate stamps from amount
+  const amount = parseInt(purchaseAmount) || 0;
+  const pointsEarned = isMinPurchase ? Math.floor(amount / 100) * 10 : 0;
+  const stampsFromPoints = isMinPurchase ? Math.floor(pointsEarned / pointsPerStamp) : 0;
+  const remainder = isMinPurchase ? pointsEarned % pointsPerStamp : 0;
+
+  return (
+    <View style={{ backgroundColor: C.white, margin: 16, borderRadius: 20, padding: 20, gap: 14 }}>
+      {/* Merchant info */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <View style={{ backgroundColor: '#D1FAE5', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 }}>
+          <Text style={{ fontSize: 12, color: '#065F46', fontWeight: '700' }}>✓ تم التعرف</Text>
+        </View>
+        {result.type === 'merchant' ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: C.textPrimary }}>{merchant.name}</Text>
+            <Text style={{ fontSize: 28 }}>{CATEGORY_ICONS[merchant.category]}</Text>
+          </View>
+        ) : (
+          <Text style={{ fontSize: 16, fontWeight: '700', color: C.textPrimary }}>{result.customer?.name}</Text>
+        )}
+      </View>
+
+      {/* Current stats */}
+      {result.type === 'merchant' && (
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <View style={{ flex: 1, backgroundColor: C.primarySurface, borderRadius: 12, padding: 12, alignItems: 'center' }}>
+            <Text style={{ fontSize: 22, fontWeight: '900', color: C.primary }}>{result.currentStamps}</Text>
+            <Text style={{ fontSize: 11, color: C.textMuted }}>طوابعك الحالية</Text>
+          </View>
+          <View style={{ flex: 1, backgroundColor: C.accentLight, borderRadius: 12, padding: 12, alignItems: 'center' }}>
+            <Text style={{ fontSize: 22, fontWeight: '900', color: C.primary }}>{result.currentPoints}</Text>
+            <Text style={{ fontSize: 11, color: C.textMuted }}>نقاطك المتراكمة</Text>
+          </View>
+        </View>
+      )}
+
+      {/* Strategy badge */}
+      <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
+        <View style={{ backgroundColor: isMinPurchase ? C.accentLight : C.primarySurface,
+          borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5,
+          borderWidth: 1, borderColor: isMinPurchase ? C.accent : C.border }}>
+          <Text style={{ fontSize: 12, color: C.primary, fontWeight: '600' }}>
+            {isMinPurchase ? `💰 حد أدنى — ${pointsPerStamp} نقطة = طابع` : '🚶 كل زيارة = طابع'}
+          </Text>
+        </View>
+      </View>
+
+      {/* PER_VISIT: direct stamp button */}
+      {!isMinPurchase && (
+        <TouchableOpacity onPress={onAddStamp} disabled={adding}
+          style={{ backgroundColor: C.primary, borderRadius: 16, padding: 18,
+            alignItems: 'center', opacity: adding ? 0.6 : 1,
+            shadowColor: C.primary, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 }}>
+          {adding ? <ActivityIndicator color={C.white} />
+            : <Text style={{ fontSize: 18, fontWeight: '800', color: C.white }}>
+                {result.type === 'merchant' ? 'إضافة طابع' : 'منح طابع للزبون'}
+              </Text>}
+        </TouchableOpacity>
+      )}
+
+      {/* MIN_PURCHASE: enter amount */}
+      {isMinPurchase && (
+        <View style={{ gap: 12 }}>
+          <Text style={{ fontSize: 14, fontWeight: '600', color: C.textPrimary, textAlign: 'right' }}>
+            أدخل مبلغ الشراء (دج)
+          </Text>
+          <TextInput value={purchaseAmount} onChangeText={setPurchaseAmount}
+            placeholder="مثال: 1500" placeholderTextColor={C.textMuted}
+            keyboardType="number-pad" autoFocus
+            style={{ borderWidth: 2, borderColor: amount > 0 ? C.primary : C.border,
+              borderRadius: 14, padding: 16, fontSize: 24, color: C.textPrimary,
+              textAlign: 'center', fontWeight: '700', backgroundColor: C.background }} />
+
+          {/* Live calculation */}
+          {amount >= 100 && (
+            <View style={{ backgroundColor: C.primarySurface, borderRadius: 14, padding: 14, gap: 8 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <Text style={{ fontSize: 14, color: C.textSecondary }}>{pointsEarned} نقطة</Text>
+                <Text style={{ fontSize: 14, color: C.textSecondary }}>النقاط المكتسبة</Text>
+              </View>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <Text style={{ fontSize: 14, color: C.accent, fontWeight: '600' }}>{remainder} نقطة محفوظة</Text>
+                <Text style={{ fontSize: 14, color: C.textSecondary }}>الباقي</Text>
+              </View>
+              <View style={{ height: 1, backgroundColor: C.border }} />
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={{ fontSize: 20, fontWeight: '900', color: C.primary }}>{stampsFromPoints} طابع</Text>
+                <Text style={{ fontSize: 14, fontWeight: '600', color: C.primary }}>ستُضاف تلقائياً</Text>
+              </View>
+            </View>
+          )}
+
+          <TouchableOpacity
+            onPress={() => {
+              if (stampsFromPoints > 0) onAddStamp();
+              else onAddPoints();
+            }}
+            disabled={adding || amount < 100}
+            style={{ backgroundColor: amount >= 100 ? C.primary : C.border,
+              borderRadius: 16, padding: 18, alignItems: 'center', opacity: adding ? 0.6 : 1 }}>
+            {adding ? <ActivityIndicator color={C.white} />
+              : <Text style={{ fontSize: 17, fontWeight: '800', color: amount >= 100 ? C.white : C.textMuted }}>
+                  {amount < 100 ? 'أدخل المبلغ'
+                    : stampsFromPoints > 0 ? `إضافة ${stampsFromPoints} طابع + ${remainder} نقطة`
+                    : `إضافة ${pointsEarned} نقطة (باقي ${pointsPerStamp - pointsEarned} للطابع)`}
+                </Text>}
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
+  );
+}
+
 // ─── SCREEN: QR SCANNER ──────────────────────────────────────────────────────
 function QRScannerScreen({ navigate, params }) {
   const mode = params?.mode || 'customer'; // 'customer' | 'cashier'
@@ -1318,52 +1440,8 @@ function QRScannerScreen({ navigate, params }) {
 
       {/* Scan Result */}
       {result && !done && (
-        <View style={{ backgroundColor: C.white, margin: 16, borderRadius: 20, padding: 20, gap: 14 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <View style={{ backgroundColor: '#D1FAE5', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 }}>
-              <Text style={{ fontSize: 12, color: '#065F46', fontWeight: '700' }}>تم التعرف</Text>
-            </View>
-            {result.type === 'merchant' && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Text style={{ fontSize: 18, fontWeight: '700', color: C.textPrimary }}>{result.merchant.name}</Text>
-                <Text style={{ fontSize: 28 }}>{CATEGORY_ICONS[result.merchant.category]}</Text>
-              </View>
-            )}
-            {result.type === 'customer' && (
-              <Text style={{ fontSize: 18, fontWeight: '700', color: C.textPrimary }}>{result.customer.name}</Text>
-            )}
-          </View>
-
-          {result.type === 'merchant' && (
-            <View style={{ flexDirection: 'row', gap: 10 }}>
-              <View style={{ flex: 1, backgroundColor: C.primarySurface, borderRadius: 12, padding: 12, alignItems: 'center' }}>
-                <Text style={{ fontSize: 24, fontWeight: '900', color: C.primary }}>{result.currentStamps}</Text>
-                <Text style={{ fontSize: 11, color: C.textMuted }}>طوابعك</Text>
-              </View>
-              <View style={{ flex: 1, backgroundColor: C.accentLight, borderRadius: 12, padding: 12, alignItems: 'center' }}>
-                <Text style={{ fontSize: 24, fontWeight: '900', color: C.primary }}>{result.currentPoints}</Text>
-                <Text style={{ fontSize: 11, color: C.textMuted }}>نقاطك</Text>
-              </View>
-            </View>
-          )}
-
-          <View style={{ gap: 10 }}>
-            <TouchableOpacity onPress={handleAddStamp} disabled={adding}
-              style={{ backgroundColor: C.primary, borderRadius: 14, padding: 16, alignItems: 'center', opacity: adding ? 0.6 : 1 }}>
-              {adding ? <ActivityIndicator color={C.white} />
-                : <Text style={{ fontSize: 16, fontWeight: '700', color: C.white }}>
-                    {result.type === 'merchant' ? '+ إضافة طابع' : '+ طابع للزبون'}
-                  </Text>}
-            </TouchableOpacity>
-            <TouchableOpacity onPress={handleAddPoints} disabled={adding}
-              style={{ backgroundColor: C.accentLight, borderRadius: 14, padding: 14, alignItems: 'center',
-                borderWidth: 1.5, borderColor: C.accent, opacity: adding ? 0.6 : 1 }}>
-              <Text style={{ fontSize: 15, fontWeight: '600', color: C.primary }}>
-                {result.type === 'merchant' ? '+ إضافة نقاط' : '+ نقاط للزبون'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        <QRScanResult result={result} adding={adding}
+          onAddStamp={handleAddStamp} onAddPoints={handleAddPoints} />
       )}
 
       {/* Simulate QR buttons */}
@@ -2168,112 +2246,172 @@ function AddPointsScreen({ navigate }) {
 // ─── NAV BAR ──────────────────────────────────────────────────────────────────
 // No global nav bar - each screen navigates naturally
 
-// ─── EXIT MODAL ───────────────────────────────────────────────────────────────
-function ExitModal({ visible, role, onClose, onSwitchRole, onLogout }) {
+// ─── SIDE DRAWER (inDrive style) ─────────────────────────────────────────────
+function SideDrawer({ visible, role, onClose, onSwitchRole, onLogout, navigate }) {
+  const slideAnim = useRef(new Animated.Value(-320)).current;
+
+  useEffect(() => {
+    Animated.timing(slideAnim, {
+      toValue: visible ? 0 : -320,
+      duration: 280,
+      useNativeDriver: true,
+    }).start();
+  }, [visible]);
+
+  const CUSTOMER_MENU = [
+    { icon: '📍', label: 'محلات قريبة', screen: 'Nearby' },
+    { icon: '🏷️', label: 'طوابعي', screen: 'StampCard' },
+    { icon: '⭐', label: 'نقاطي', screen: 'PointsWallet' },
+    { icon: '📷', label: 'مسح QR', screen: 'QRScanner', params: { mode: 'customer' } },
+  ];
+
+  const MERCHANT_MENU = [
+    { icon: '📊', label: 'لوحة التحكم', screen: 'Dashboard' },
+    { icon: '⚡', label: 'شاشة الكاشير', screen: 'CashierQueue' },
+    { icon: '📷', label: 'مسح QR زبون', screen: 'QRScanner', params: { mode: 'cashier' } },
+    { icon: '💰', label: 'إضافة نقاط', screen: 'AddPoints' },
+    { icon: '🎁', label: 'إهداء نقاط', screen: 'GiftPoints' },
+    { icon: '📋', label: 'عرض QR المحل', screen: 'QRPoster' },
+  ];
+
+  const menu = role === 'customer' ? CUSTOMER_MENU : MERCHANT_MENU;
+
+  if (!visible) return null;
+
   return (
-    <Modal visible={visible} transparent animationType="fade">
-      <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
-        justifyContent: 'flex-end' }} onPress={onClose} activeOpacity={1}>
-        <View style={{ backgroundColor: C.white, borderTopLeftRadius: 24,
-          borderTopRightRadius: 24, padding: 24, gap: 12, paddingBottom: 36 }}>
+    <Modal visible={visible} transparent animationType="none">
+      <View style={{ flex: 1, flexDirection: 'row' }}>
+        {/* Drawer */}
+        <Animated.View style={{ width: 300, backgroundColor: C.white, height: '100%',
+          transform: [{ translateX: slideAnim }],
+          shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 20, elevation: 20 }}>
 
-          {/* Header */}
-          <View style={{ alignItems: 'center', marginBottom: 4 }}>
-            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: C.border }} />
+          {/* Profile header */}
+          <View style={{ backgroundColor: C.primary, paddingTop: 50, paddingBottom: 24,
+            paddingHorizontal: 20, gap: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+              <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(255,255,255,0.2)',
+                alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: C.accent }}>
+                <Text style={{ fontSize: 28 }}>{role === 'customer' ? '👤' : '🏪'}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 18, fontWeight: '800', color: C.white }}>
+                  {role === 'customer' ? 'زبون زيدني' : (mockMerchant?.name || 'تاجر زيدني')}
+                </Text>
+                <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>0555 123 456</Text>
+              </View>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 10,
+                padding: 10, alignItems: 'center' }}>
+                <Text style={{ fontSize: 18, fontWeight: '800', color: C.accent }}>{mockStamps}</Text>
+                <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>طوابع</Text>
+              </View>
+              <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 10,
+                padding: 10, alignItems: 'center' }}>
+                <Text style={{ fontSize: 18, fontWeight: '800', color: C.accent }}>{myZidmePoints}</Text>
+                <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>نقاط</Text>
+              </View>
+            </View>
           </View>
-          <Text style={{ fontSize: 18, fontWeight: '700', color: C.textPrimary, textAlign: 'center' }}>
-            خيارات الحساب
-          </Text>
 
-          {/* Current role indicator */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-            gap: 8, backgroundColor: C.primarySurface, borderRadius: 12, padding: 12 }}>
-            <Text style={{ fontSize: 20 }}>{role === 'customer' ? '🛍️' : '🏪'}</Text>
-            <Text style={{ fontSize: 14, color: C.primary, fontWeight: '600' }}>
-              أنت الآن في وضع {role === 'customer' ? 'الزبون' : 'التاجر'}
-            </Text>
-          </View>
+          {/* Menu items */}
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingVertical: 8 }}>
+            {menu.map((item, i) => (
+              <TouchableOpacity key={i} onPress={() => {
+                onClose();
+                setTimeout(() => navigate(item.screen, item.params || {}), 250);
+              }}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 16,
+                  paddingVertical: 16, paddingHorizontal: 20,
+                  borderBottomWidth: 1, borderBottomColor: C.borderLight }}
+                activeOpacity={0.7}>
+                <Text style={{ fontSize: 24, width: 32, textAlign: 'center' }}>{item.icon}</Text>
+                <Text style={{ fontSize: 16, color: C.textPrimary, flex: 1, textAlign: 'right' }}>{item.label}</Text>
+                <Text style={{ fontSize: 18, color: C.textMuted }}>‹</Text>
+              </TouchableOpacity>
+            ))}
 
-          {/* Switch role */}
-          <TouchableOpacity onPress={onSwitchRole} activeOpacity={0.85}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 14,
-              backgroundColor: C.white, borderRadius: 16, padding: 18,
-              borderWidth: 1.5, borderColor: C.border }}>
-            <Text style={{ fontSize: 28 }}>{role === 'customer' ? '🏪' : '🛍️'}</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 16, fontWeight: '600', color: C.textPrimary, textAlign: 'right' }}>
+            {/* Switch role */}
+            <TouchableOpacity onPress={() => { onClose(); setTimeout(onSwitchRole, 250); }}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 16,
+                paddingVertical: 16, paddingHorizontal: 20,
+                borderBottomWidth: 1, borderBottomColor: C.borderLight,
+                backgroundColor: C.primarySurface }}
+              activeOpacity={0.7}>
+              <Text style={{ fontSize: 24, width: 32, textAlign: 'center' }}>
+                {role === 'customer' ? '🏪' : '🛍️'}
+              </Text>
+              <Text style={{ fontSize: 16, color: C.primary, fontWeight: '600', flex: 1, textAlign: 'right' }}>
                 التبديل إلى {role === 'customer' ? 'وضع التاجر' : 'وضع الزبون'}
               </Text>
-              <Text style={{ fontSize: 13, color: C.textMuted, textAlign: 'right' }}>
-                نفس الحساب — دور مختلف
-              </Text>
-            </View>
-          </TouchableOpacity>
+              <Text style={{ fontSize: 18, color: C.primary }}>‹</Text>
+            </TouchableOpacity>
+          </ScrollView>
 
           {/* Logout */}
-          <TouchableOpacity onPress={onLogout} activeOpacity={0.85}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 14,
-              backgroundColor: '#FFF5F5', borderRadius: 16, padding: 18,
-              borderWidth: 1.5, borderColor: '#FEE2E2' }}>
-            <Text style={{ fontSize: 28 }}>🚪</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 16, fontWeight: '600', color: C.error, textAlign: 'right' }}>
-                تسجيل الخروج
-              </Text>
-              <Text style={{ fontSize: 13, color: C.textMuted, textAlign: 'right' }}>
-                العودة لشاشة الدخول
-              </Text>
-            </View>
+          <TouchableOpacity onPress={() => { onClose(); setTimeout(onLogout, 250); }}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 16,
+              padding: 20, borderTopWidth: 1, borderTopColor: C.border }}
+            activeOpacity={0.7}>
+            <Text style={{ fontSize: 24, width: 32, textAlign: 'center' }}>🚪</Text>
+            <Text style={{ fontSize: 16, color: C.error, fontWeight: '600', flex: 1, textAlign: 'right' }}>
+              تسجيل الخروج
+            </Text>
           </TouchableOpacity>
+        </Animated.View>
 
-          {/* Cancel */}
-          <TouchableOpacity onPress={onClose} activeOpacity={0.7}
-            style={{ padding: 14, alignItems: 'center' }}>
-            <Text style={{ fontSize: 15, color: C.textMuted, fontWeight: '600' }}>إلغاء</Text>
-          </TouchableOpacity>
-        </View>
-      </TouchableOpacity>
+        {/* Backdrop */}
+        <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}
+          onPress={onClose} activeOpacity={1} />
+      </View>
     </Modal>
   );
 }
 
 // ─── CUSTOMER TAB BAR ─────────────────────────────────────────────────────────
 function CustomerTabBar({ active, navigate, onMenuPress }) {
-  const tabs = [
-    { label: 'محلات', screen: 'Nearby', icon: '📍' },
-    { label: 'طوابعي', screen: 'StampCard', icon: '🏷️' },
-    { label: 'نقاطي', screen: 'PointsWallet', icon: '⭐' },
-  ];
   return (
     <View style={{ flexDirection: 'row', backgroundColor: C.white,
       borderTopWidth: 1, borderTopColor: C.border,
-      paddingBottom: 20, paddingTop: 8 }}>
-      {tabs.map(({ label, screen, icon }) => (
-        <TouchableOpacity key={screen} onPress={() => navigate(screen)}
-          style={{ flex: 1, alignItems: 'center', gap: 4 }} activeOpacity={0.7}>
-          <Text style={{ fontSize: 26 }}>{icon}</Text>
-          <Text style={{ fontSize: 12, fontWeight: active === screen ? '700' : '400',
-            color: active === screen ? C.primary : C.textMuted }}>{label}</Text>
-          {active === screen && (
-            <View style={{ width: 20, height: 3, borderRadius: 2, backgroundColor: C.primary }} />
-          )}
-        </TouchableOpacity>
-      ))}
-      {/* QR Scan button */}
-      <TouchableOpacity onPress={() => navigate('QRScanner', { mode: 'customer' })}
-        style={{ flex: 1, alignItems: 'center', gap: 4 }} activeOpacity={0.7}>
-        <View style={{ backgroundColor: C.primary, borderRadius: 14, width: 42, height: 42,
-          alignItems: 'center', justifyContent: 'center', marginTop: -16,
-          shadowColor: C.primary, shadowOpacity: 0.4, shadowRadius: 8, elevation: 6 }}>
-          <Text style={{ fontSize: 22 }}>📷</Text>
-        </View>
-        <Text style={{ fontSize: 11, color: C.primary, fontWeight: '700', marginTop: 2 }}>مسح QR</Text>
+      paddingBottom: 22, paddingTop: 6, alignItems: 'flex-end' }}>
+
+      {/* Home */}
+      <TouchableOpacity onPress={() => navigate('Nearby')}
+        style={{ flex: 1, alignItems: 'center', gap: 3, paddingTop: 8 }} activeOpacity={0.7}>
+        <Text style={{ fontSize: 24 }}>📍</Text>
+        <Text style={{ fontSize: 11, color: active === 'Nearby' ? C.primary : C.textMuted,
+          fontWeight: active === 'Nearby' ? '700' : '400' }}>محلات</Text>
+        {active === 'Nearby' && <View style={{ width: 18, height: 3, borderRadius: 2, backgroundColor: C.primary }} />}
       </TouchableOpacity>
-      {/* Account button */}
+
+      {/* QR — Center elevated */}
+      <TouchableOpacity onPress={() => navigate('QRScanner', { mode: 'customer' })}
+        style={{ flex: 1, alignItems: 'center', marginBottom: 8 }} activeOpacity={0.85}>
+        <View style={{ width: 58, height: 58, borderRadius: 29, backgroundColor: C.primary,
+          alignItems: 'center', justifyContent: 'center',
+          shadowColor: C.primary, shadowOpacity: 0.45, shadowRadius: 10, elevation: 8,
+          borderWidth: 3, borderColor: C.white }}>
+          <Text style={{ fontSize: 26 }}>📷</Text>
+        </View>
+        <Text style={{ fontSize: 11, color: C.primary, fontWeight: '700', marginTop: 4 }}>مسح QR</Text>
+      </TouchableOpacity>
+
+      {/* Menu */}
       <TouchableOpacity onPress={onMenuPress}
-        style={{ flex: 1, alignItems: 'center', gap: 4 }} activeOpacity={0.7}>
-        <Text style={{ fontSize: 26 }}>👤</Text>
-        <Text style={{ fontSize: 12, color: C.textMuted }}>حسابي</Text>
+        style={{ flex: 1, alignItems: 'center', gap: 3, paddingTop: 8 }} activeOpacity={0.7}>
+        <View style={{ gap: 4, alignItems: 'center' }}>
+          <View style={{ flexDirection: 'row', gap: 3 }}>
+            {[0,1,2].map(i => <View key={i} style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: C.textMuted }} />)}
+          </View>
+          <View style={{ flexDirection: 'row', gap: 3 }}>
+            {[0,1,2].map(i => <View key={i} style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: C.textMuted }} />)}
+          </View>
+          <View style={{ flexDirection: 'row', gap: 3 }}>
+            {[0,1,2].map(i => <View key={i} style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: C.textMuted }} />)}
+          </View>
+        </View>
+        <Text style={{ fontSize: 11, color: C.textMuted }}>القائمة</Text>
       </TouchableOpacity>
     </View>
   );
@@ -2281,42 +2419,39 @@ function CustomerTabBar({ active, navigate, onMenuPress }) {
 
 // ─── MERCHANT TAB BAR ─────────────────────────────────────────────────────────
 function MerchantTabBar({ active, navigate, onMenuPress }) {
-  const tabs = [
-    { label: 'لوحة', screen: 'Dashboard', icon: '📊' },
-    { label: 'الكاشير', screen: 'CashierQueue', icon: '⚡' },
-    { label: 'نقاط+', screen: 'AddPoints', icon: '💰' },
-    { label: 'إهداء', screen: 'GiftPoints', icon: '🎁' },
-  ];
   return (
     <View style={{ flexDirection: 'row', backgroundColor: C.white,
       borderTopWidth: 1, borderTopColor: C.border,
-      paddingBottom: 20, paddingTop: 8 }}>
-      {tabs.map(({ label, screen, icon }) => (
-        <TouchableOpacity key={screen} onPress={() => navigate(screen)}
-          style={{ flex: 1, alignItems: 'center', gap: 4 }} activeOpacity={0.7}>
-          <Text style={{ fontSize: 22 }}>{icon}</Text>
-          <Text style={{ fontSize: 10, fontWeight: active === screen ? '700' : '400',
-            color: active === screen ? C.primary : C.textMuted, textAlign: 'center' }}>{label}</Text>
-          {active === screen && (
-            <View style={{ width: 16, height: 3, borderRadius: 2, backgroundColor: C.primary }} />
-          )}
-        </TouchableOpacity>
-      ))}
-      {/* QR Scan button */}
-      <TouchableOpacity onPress={() => navigate('QRScanner', { mode: 'cashier' })}
-        style={{ flex: 1, alignItems: 'center', gap: 4 }} activeOpacity={0.7}>
-        <View style={{ backgroundColor: C.accent, borderRadius: 14, width: 42, height: 42,
-          alignItems: 'center', justifyContent: 'center', marginTop: -16,
-          shadowColor: C.accent, shadowOpacity: 0.4, shadowRadius: 8, elevation: 6 }}>
-          <Text style={{ fontSize: 22 }}>📷</Text>
-        </View>
-        <Text style={{ fontSize: 10, color: C.primary, fontWeight: '700', marginTop: 2 }}>مسح QR</Text>
+      paddingBottom: 22, paddingTop: 6, alignItems: 'flex-end' }}>
+
+      {/* Dashboard */}
+      <TouchableOpacity onPress={() => navigate('Dashboard')}
+        style={{ flex: 1, alignItems: 'center', gap: 3, paddingTop: 8 }} activeOpacity={0.7}>
+        <Text style={{ fontSize: 24 }}>📊</Text>
+        <Text style={{ fontSize: 11, color: active === 'Dashboard' ? C.primary : C.textMuted,
+          fontWeight: active === 'Dashboard' ? '700' : '400' }}>لوحة</Text>
+        {active === 'Dashboard' && <View style={{ width: 18, height: 3, borderRadius: 2, backgroundColor: C.primary }} />}
       </TouchableOpacity>
-      {/* Account button */}
+
+      {/* QR — Center elevated */}
+      <TouchableOpacity onPress={() => navigate('QRScanner', { mode: 'cashier' })}
+        style={{ flex: 1, alignItems: 'center', marginBottom: 8 }} activeOpacity={0.85}>
+        <View style={{ width: 58, height: 58, borderRadius: 29, backgroundColor: C.accent,
+          alignItems: 'center', justifyContent: 'center',
+          shadowColor: C.accent, shadowOpacity: 0.45, shadowRadius: 10, elevation: 8,
+          borderWidth: 3, borderColor: C.white }}>
+          <Text style={{ fontSize: 26 }}>📷</Text>
+        </View>
+        <Text style={{ fontSize: 11, color: C.primary, fontWeight: '700', marginTop: 4 }}>مسح QR</Text>
+      </TouchableOpacity>
+
+      {/* Menu */}
       <TouchableOpacity onPress={onMenuPress}
-        style={{ flex: 1, alignItems: 'center', gap: 4 }} activeOpacity={0.7}>
-        <Text style={{ fontSize: 22 }}>👤</Text>
-        <Text style={{ fontSize: 10, color: C.textMuted, textAlign: 'center' }}>حسابي</Text>
+        style={{ flex: 1, alignItems: 'center', gap: 3, paddingTop: 8 }} activeOpacity={0.7}>
+        <View style={{ gap: 4, alignItems: 'center' }}>
+          {[0,1,2].map(i => <View key={i} style={{ width: 22, height: 3, borderRadius: 2, backgroundColor: C.textMuted }} />)}
+        </View>
+        <Text style={{ fontSize: 11, color: C.textMuted, marginTop: 2 }}>القائمة</Text>
       </TouchableOpacity>
     </View>
   );
@@ -2386,12 +2521,13 @@ export default function App() {
         <MerchantTabBar active={screen} navigate={navigate}
           onMenuPress={() => setShowExitModal(true)} />
       )}
-      <ExitModal
+      <SideDrawer
         visible={showExitModal}
         role={role}
         onClose={() => setShowExitModal(false)}
         onSwitchRole={handleSwitchRole}
         onLogout={handleLogout}
+        navigate={navigate}
       />
     </View>
   );
