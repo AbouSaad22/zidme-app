@@ -1507,8 +1507,7 @@ function MinPurchaseFlow({ merchant, adding, onSent }) {
 
   // Input step
   return (
-    <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-      <View style={{ gap: 10, paddingBottom: 100 }}>
+    <View style={{ gap: 10 }}>
         <Text style={{ fontSize: 14, fontWeight: '600', color: C.textPrimary, textAlign: 'right' }}>
           أدخل مبلغ الشراء (دج)
         </Text>
@@ -1569,8 +1568,7 @@ function MinPurchaseFlow({ merchant, adding, onSent }) {
                 {amt < 100 ? 'أدخل المبلغ' : 'إرسال للكاشير للتأكيد'}
               </Text>}
         </TouchableOpacity>
-      </View>
-    </ScrollView>
+    </View>
   );
 }
 
@@ -1758,6 +1756,8 @@ function QRScannerScreen({ navigate, params }) {
         <View style={{ width: 40 }} />
       </View>
 
+      <ScrollView contentContainerStyle={{ paddingBottom: 120 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+
       {/* Camera viewfinder (simulated) */}
       <View style={{ alignItems: 'center', padding: 24 }}>
         <Animated.View style={{ transform: [{ scale: pulseAnim }],
@@ -1830,6 +1830,7 @@ function QRScannerScreen({ navigate, params }) {
           </ScrollView>
         </View>
       )}
+      </ScrollView>
     </SafeAreaView>
   );
 }
