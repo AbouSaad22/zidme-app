@@ -1507,67 +1507,70 @@ function MinPurchaseFlow({ merchant, adding, onSent }) {
 
   // Input step
   return (
-    <View style={{ gap: 12 }}>
-      <Text style={{ fontSize: 14, fontWeight: '600', color: C.textPrimary, textAlign: 'right' }}>
-        أدخل مبلغ الشراء (دج)
-      </Text>
+    <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <View style={{ gap: 10, paddingBottom: 100 }}>
+        <Text style={{ fontSize: 14, fontWeight: '600', color: C.textPrimary, textAlign: 'right' }}>
+          أدخل مبلغ الشراء (دج)
+        </Text>
 
-      {/* Quick amounts */}
-      <View style={{ flexDirection: 'row', gap: 8 }}>
-        {[500, 1000, 1500, 2000].map(n => (
-          <TouchableOpacity key={n} onPress={() => setAmount(String(n))}
-            style={{ flex: 1, backgroundColor: amount === String(n) ? C.primary : C.background,
-              borderRadius: 10, padding: 10, alignItems: 'center',
-              borderWidth: 1.5, borderColor: amount === String(n) ? C.primary : C.border }}>
-            <Text style={{ fontSize: 13, fontWeight: '700',
-              color: amount === String(n) ? C.white : C.textSecondary }}>{n}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      <TextInput value={amount} onChangeText={setAmount}
-        placeholder="أو أدخل مبلغاً مخصصاً" placeholderTextColor={C.textMuted}
-        keyboardType="number-pad"
-        style={{ borderWidth: 2, borderColor: amt >= 100 ? C.primary : C.border,
-          borderRadius: 14, padding: 16, fontSize: 22, color: C.textPrimary,
-          textAlign: 'center', fontWeight: '700', backgroundColor: C.background }} />
-
-      {/* Live preview */}
-      {amt >= 100 && (
-        <View style={{ backgroundColor: C.primarySurface, borderRadius: 14, padding: 14, gap: 8 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-            <Text style={{ fontSize: 14, color: C.textSecondary }}>{pointsEarned} نقطة</Text>
-            <Text style={{ fontSize: 14, color: C.textSecondary }}>ستكسب</Text>
-          </View>
-          <View style={{ height: 1, backgroundColor: C.border }} />
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-              {stampsFromPoints > 0 && (
-                <View style={{ backgroundColor: C.primary, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}>
-                  <Text style={{ fontSize: 13, fontWeight: '700', color: C.white }}>+{stampsFromPoints} طابع</Text>
-                </View>
-              )}
-              {remainder > 0 && (
-                <View style={{ backgroundColor: C.accentLight, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}>
-                  <Text style={{ fontSize: 13, fontWeight: '600', color: C.primary }}>{remainder} نقطة محفوظة</Text>
-                </View>
-              )}
-            </View>
-            <Text style={{ fontSize: 13, color: C.textSecondary }}>النتيجة</Text>
-          </View>
+        {/* Quick amounts */}
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          {[500, 1000, 1500, 2000].map(n => (
+            <TouchableOpacity key={n} onPress={() => setAmount(String(n))}
+              style={{ flex: 1, backgroundColor: amount === String(n) ? C.primary : C.background,
+                borderRadius: 10, padding: 12, alignItems: 'center',
+                borderWidth: 1.5, borderColor: amount === String(n) ? C.primary : C.border }}>
+              <Text style={{ fontSize: 14, fontWeight: '700',
+                color: amount === String(n) ? C.white : C.textSecondary }}>{n}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
-      )}
 
-      <TouchableOpacity onPress={handleSubmit} disabled={submitting || amt < 100}
-        style={{ backgroundColor: amt >= 100 ? C.primary : C.border,
-          borderRadius: 16, padding: 18, alignItems: 'center',
-          shadowColor: C.primary, shadowOpacity: amt >= 100 ? 0.3 : 0, shadowRadius: 8, elevation: amt >= 100 ? 4 : 0 }}>
-        {submitting ? <ActivityIndicator color={C.white} />
-          : <Text style={{ fontSize: 17, fontWeight: '800', color: amt >= 100 ? C.white : C.textMuted }}>
-              {amt < 100 ? 'أدخل المبلغ' : 'إرسال للكاشير للتأكيد'}
-            </Text>}
-      </TouchableOpacity>
-    </View>
+        <TextInput value={amount} onChangeText={setAmount}
+          placeholder="أو أدخل مبلغاً مخصصاً" placeholderTextColor={C.textMuted}
+          keyboardType="number-pad" autoFocus
+          style={{ borderWidth: 2, borderColor: amt >= 100 ? C.primary : C.border,
+            borderRadius: 14, padding: 16, fontSize: 22, color: C.textPrimary,
+            textAlign: 'center', fontWeight: '700', backgroundColor: C.background }} />
+
+        {/* Live preview */}
+        {amt >= 100 && (
+          <View style={{ backgroundColor: C.primarySurface, borderRadius: 14, padding: 14, gap: 8 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <Text style={{ fontSize: 14, color: C.textSecondary }}>{pointsEarned} نقطة</Text>
+              <Text style={{ fontSize: 14, color: C.textSecondary }}>ستكسب</Text>
+            </View>
+            <View style={{ height: 1, backgroundColor: C.border }} />
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                {stampsFromPoints > 0 && (
+                  <View style={{ backgroundColor: C.primary, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}>
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: C.white }}>+{stampsFromPoints} طابع</Text>
+                  </View>
+                )}
+                {remainder > 0 && (
+                  <View style={{ backgroundColor: C.accentLight, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}>
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: C.primary }}>{remainder} نقطة محفوظة</Text>
+                  </View>
+                )}
+              </View>
+              <Text style={{ fontSize: 13, color: C.textSecondary }}>النتيجة</Text>
+            </View>
+          </View>
+        )}
+
+        <TouchableOpacity onPress={handleSubmit} disabled={submitting || amt < 100}
+          style={{ backgroundColor: amt >= 100 ? C.primary : C.border,
+            borderRadius: 16, padding: 18, alignItems: 'center',
+            shadowColor: C.primary, shadowOpacity: amt >= 100 ? 0.3 : 0,
+            shadowRadius: 8, elevation: amt >= 100 ? 4 : 0 }}>
+          {submitting ? <ActivityIndicator color={C.white} />
+            : <Text style={{ fontSize: 17, fontWeight: '800', color: amt >= 100 ? C.white : C.textMuted }}>
+                {amt < 100 ? 'أدخل المبلغ' : 'إرسال للكاشير للتأكيد'}
+              </Text>}
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
   );
 }
 
@@ -1798,7 +1801,7 @@ function QRScannerScreen({ navigate, params }) {
 
       {/* Simulate QR buttons */}
       {!result && !scanning && (
-        <View style={{ padding: 16, gap: 10 }}>
+        <View style={{ padding: 16, gap: 10, paddingBottom: 100 }}>
           <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, textAlign: 'center' }}>
             — محاكاة QR للتجربة —
           </Text>
