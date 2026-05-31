@@ -115,6 +115,46 @@ async function apiConvertPointsToStamp(merchantId, pointsPerStamp) {
   return { stampsAdded: stampsToAdd, remainingPoints: remainder, newTotal: mockStamps };
 }
 
+// Mock user profile
+let mockProfile = {
+  name: '',
+  age: '',
+  gender: null, // 'male' | 'female'
+  address: '',
+  avatar: null,
+  completionPoints: 0,
+  completedFields: [],
+};
+
+const PROFILE_REWARDS = {
+  name: { points: 20, label: 'إضافة الاسم' },
+  age: { points: 10, label: 'إضافة العمر' },
+  gender: { points: 10, label: 'تحديد الجنس' },
+  address: { points: 30, label: 'إضافة العنوان' },
+};
+
+async function apiSaveProfile(data) {
+  await delay(700);
+  let newPoints = 0;
+  const newFields = [];
+  Object.keys(PROFILE_REWARDS).forEach(field => {
+    if (data[field] && !mockProfile.completedFields.includes(field)) {
+      newPoints += PROFILE_REWARDS[field].points;
+      newFields.push(field);
+    }
+  });
+  mockProfile = { ...mockProfile, ...data,
+    completionPoints: mockProfile.completionPoints + newPoints,
+    completedFields: [...mockProfile.completedFields, ...newFields] };
+  if (newPoints > 0) myZidmePoints += newPoints;
+  return { profile: mockProfile, pointsEarned: newPoints, newFields };
+}
+
+async function apiGetProfile() {
+  await delay(400);
+  return mockProfile;
+}
+
 // QR Token registry - maps token to merchant
 const QR_REGISTRY = {
   'QR-CAFE-001': { merchantId: 'm1', name: 'كافيه الأصيل', category: 'CAFE', required: 6, rewardLabel: 'قهوة مجانية', pointsPerStamp: 50 },
@@ -2246,6 +2286,245 @@ function AddPointsScreen({ navigate }) {
 // ─── NAV BAR ──────────────────────────────────────────────────────────────────
 // No global nav bar - each screen navigates naturally
 
+// ─── SCREEN: MY PROFILE ──────────────────────────────────────────────────────
+function ProfileScreen({ navigate }) {
+  const [profile, setProfile] = useState({ ...mockProfile });
+  const [name, setName] = useState(mockProfile.name);
+  const [age, setAge] = useState(mockProfile.age);
+  const [gender, setGender] = useState(mockProfile.gender);
+  const [address, setAddress] = useState(mockProfile.address);
+  const [locating, setLocating] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [reward, setReward] = useState(null);
+
+  const completion = () => {
+    let filled = 0;
+    if (name) filled++;
+    if (age) filled++;
+    if (gender) filled++;
+    if (address) filled++;
+    return Math.round((filled / 4) * 100);
+  };
+
+  const getLocationAuto = async () => {
+    setLocating(true);
+    await delay(1500);
+    setAddress('حي النصر، وهران، الجزائر');
+    setLocating(false);
+  };
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      const res = await apiSaveProfile({ name, age, gender, address });
+      setProfile(res.profile);
+      if (res.pointsEarned > 0) {
+        setReward({ points: res.pointsEarned, fields: res.newFields });
+        setTimeout(() => setReward(null), 3500);
+      }
+    } finally { setSaving(false); }
+  };
+
+  const pct = completion();
+  const FIELDS = [
+    { key: 'name', done: !!mockProfile.completedFields.includes('name') },
+    { key: 'age', done: !!mockProfile.completedFields.includes('age') },
+    { key: 'gender', done: !!mockProfile.completedFields.includes('gender') },
+    { key: 'address', done: !!mockProfile.completedFields.includes('address') },
+  ];
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: C.background }}>
+      {/* Reward banner */}
+      {reward && (
+        <Animated.View style={{ position: 'absolute', top: 60, left: 16, right: 16, zIndex: 99,
+          backgroundColor: C.primary, borderRadius: 16, padding: 16,
+          flexDirection: 'row', alignItems: 'center', gap: 12,
+          shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 12, elevation: 10 }}>
+          <Text style={{ fontSize: 32 }}>🎉</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 16, fontWeight: '800', color: C.accent }}>
+              +{reward.points} نقطة Zidme!
+            </Text>
+            <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)' }}>
+              شكراً على إكمال بياناتك
+            </Text>
+          </View>
+        </Animated.View>
+      )}
+
+      <ScrollView contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 40 }}
+        keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+
+        {/* Header */}
+        <View style={{ backgroundColor: C.primary, borderRadius: 20, padding: 20, gap: 16 }}>
+          {/* Avatar */}
+          <View style={{ alignItems: 'center', gap: 10 }}>
+            <View style={{ width: 80, height: 80, borderRadius: 40,
+              backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center',
+              borderWidth: 3, borderColor: C.accent }}>
+              <Text style={{ fontSize: 40 }}>{gender === 'female' ? '👩' : '👨'}</Text>
+            </View>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: C.white }}>
+              {name || 'اسمك هنا'}
+            </Text>
+            <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>0555 123 456</Text>
+          </View>
+
+          {/* Points */}
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 12,
+              padding: 12, alignItems: 'center' }}>
+              <Text style={{ fontSize: 22, fontWeight: '900', color: C.accent }}>{myZidmePoints}</Text>
+              <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>نقاط Zidme</Text>
+            </View>
+            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 12,
+              padding: 12, alignItems: 'center' }}>
+              <Text style={{ fontSize: 22, fontWeight: '900', color: C.accent }}>{mockProfile.completionPoints}</Text>
+              <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>نقاط البروفايل</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Completion progress */}
+        <View style={{ backgroundColor: C.white, borderRadius: 18, padding: 18, gap: 12,
+          shadowColor: C.primary, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: C.primary }}>{pct}%</Text>
+            <Text style={{ fontSize: 15, fontWeight: '700', color: C.textPrimary }}>اكتمال البروفايل</Text>
+          </View>
+          <View style={{ height: 8, backgroundColor: C.border, borderRadius: 99, overflow: 'hidden' }}>
+            <View style={{ width: `${pct}%`, height: '100%', backgroundColor: pct === 100 ? '#22C55E' : C.accent, borderRadius: 99 }} />
+          </View>
+
+          {/* Rewards per field */}
+          <View style={{ gap: 8 }}>
+            {Object.entries(PROFILE_REWARDS).map(([field, info]) => {
+              const done = mockProfile.completedFields.includes(field);
+              return (
+                <View key={field} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <View style={{ width: 24, height: 24, borderRadius: 12,
+                    backgroundColor: done ? '#22C55E' : C.border,
+                    alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ fontSize: 12, color: done ? C.white : C.textMuted }}>
+                      {done ? '✓' : '○'}
+                    </Text>
+                  </View>
+                  <Text style={{ flex: 1, fontSize: 14, color: done ? C.textMuted : C.textPrimary,
+                    textDecorationLine: done ? 'line-through' : 'none', textAlign: 'right' }}>
+                    {info.label}
+                  </Text>
+                  <View style={{ backgroundColor: done ? C.borderLight : C.accentLight,
+                    borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
+                    <Text style={{ fontSize: 12, fontWeight: '700',
+                      color: done ? C.textMuted : C.primary }}>+{info.points}</Text>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* Form */}
+        <View style={{ backgroundColor: C.white, borderRadius: 18, padding: 18, gap: 16,
+          shadowColor: C.primary, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 }}>
+          <Text style={{ fontSize: 16, fontWeight: '700', color: C.textPrimary, textAlign: 'right' }}>
+            بياناتك الشخصية
+          </Text>
+
+          {/* Name */}
+          <View style={{ gap: 6 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <Text style={{ fontSize: 12, color: C.accent }}>+{PROFILE_REWARDS.name.points} نقطة</Text>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: C.textSecondary }}>الاسم (اختياري)</Text>
+            </View>
+            <TextInput value={name} onChangeText={setName}
+              placeholder="أدخل اسمك" placeholderTextColor={C.textMuted}
+              style={{ borderWidth: 1.5, borderColor: name ? C.primary : C.border,
+                borderRadius: 12, padding: 14, fontSize: 16, color: C.textPrimary,
+                backgroundColor: C.background, textAlign: 'right' }} maxLength={40} />
+          </View>
+
+          {/* Age */}
+          <View style={{ gap: 6 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <Text style={{ fontSize: 12, color: C.accent }}>+{PROFILE_REWARDS.age.points} نقطة</Text>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: C.textSecondary }}>العمر (اختياري)</Text>
+            </View>
+            <TextInput value={age} onChangeText={setAge}
+              placeholder="مثال: 28" placeholderTextColor={C.textMuted}
+              keyboardType="number-pad" maxLength={3}
+              style={{ borderWidth: 1.5, borderColor: age ? C.primary : C.border,
+                borderRadius: 12, padding: 14, fontSize: 16, color: C.textPrimary,
+                backgroundColor: C.background, textAlign: 'right' }} />
+          </View>
+
+          {/* Gender */}
+          <View style={{ gap: 8 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <Text style={{ fontSize: 12, color: C.accent }}>+{PROFILE_REWARDS.gender.points} نقطة</Text>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: C.textSecondary }}>الجنس (اختياري)</Text>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              {[
+                { key: 'male', label: 'ذكر', icon: '👨' },
+                { key: 'female', label: 'أنثى', icon: '👩' },
+              ].map(g => (
+                <TouchableOpacity key={g.key} onPress={() => setGender(g.key)}
+                  style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+                    gap: 8, padding: 14, borderRadius: 14,
+                    backgroundColor: gender === g.key ? C.primarySurface : C.background,
+                    borderWidth: 2, borderColor: gender === g.key ? C.primary : C.border }}>
+                  <Text style={{ fontSize: 24 }}>{g.icon}</Text>
+                  <Text style={{ fontSize: 15, fontWeight: '600',
+                    color: gender === g.key ? C.primary : C.textSecondary }}>{g.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Address */}
+          <View style={{ gap: 8 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <Text style={{ fontSize: 12, color: C.accent }}>+{PROFILE_REWARDS.address.points} نقطة</Text>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: C.textSecondary }}>العنوان (اختياري)</Text>
+            </View>
+            <TextInput value={address} onChangeText={setAddress}
+              placeholder="حيك أو مدينتك" placeholderTextColor={C.textMuted} multiline numberOfLines={2}
+              style={{ borderWidth: 1.5, borderColor: address ? C.primary : C.border,
+                borderRadius: 12, padding: 14, fontSize: 15, color: C.textPrimary,
+                backgroundColor: C.background, textAlign: 'right', minHeight: 70 }} />
+            <TouchableOpacity onPress={getLocationAuto} disabled={locating}
+              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+                gap: 8, backgroundColor: C.primarySurface, borderRadius: 12, padding: 12,
+                borderWidth: 1, borderColor: C.border, opacity: locating ? 0.6 : 1 }}>
+              {locating
+                ? <ActivityIndicator size="small" color={C.primary} />
+                : <Text style={{ fontSize: 16 }}>📍</Text>}
+              <Text style={{ fontSize: 14, fontWeight: '600', color: C.primary }}>
+                {locating ? 'جارٍ تحديد الموقع...' : 'تحديد الموقع تلقائياً'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Save button */}
+        <Btn label={saving ? '' : 'حفظ البيانات'} onPress={handleSave} loading={saving}
+          disabled={!name && !age && !gender && !address} />
+
+        {pct === 100 && (
+          <View style={{ backgroundColor: '#F0FDF4', borderRadius: 16, padding: 16,
+            alignItems: 'center', gap: 8, borderWidth: 1.5, borderColor: '#86EFAC' }}>
+            <Text style={{ fontSize: 28 }}>🏆</Text>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: '#16A34A' }}>بروفايل مكتمل 100%</Text>
+            <Text style={{ fontSize: 13, color: '#15803D' }}>حصلت على كل نقاط البروفايل!</Text>
+          </View>
+        )}
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
 // ─── SIDE DRAWER (inDrive style) ─────────────────────────────────────────────
 function SideDrawer({ visible, role, onClose, onSwitchRole, onLogout, navigate }) {
   const slideAnim = useRef(new Animated.Value(-320)).current;
@@ -2263,6 +2542,7 @@ function SideDrawer({ visible, role, onClose, onSwitchRole, onLogout, navigate }
     { icon: '🏷️', label: 'طوابعي', screen: 'StampCard' },
     { icon: '⭐', label: 'نقاطي', screen: 'PointsWallet' },
     { icon: '📷', label: 'مسح QR', screen: 'QRScanner', params: { mode: 'customer' } },
+    { icon: '👤', label: 'حسابي', screen: 'Profile' },
   ];
 
   const MERCHANT_MENU = [
@@ -2458,7 +2738,7 @@ function MerchantTabBar({ active, navigate, onMenuPress }) {
 }
 
 // ─── APP ──────────────────────────────────────────────────────────────────────
-const CUSTOMER_SCREENS = ['Nearby', 'StampCard', 'PointsWallet', 'CustomerEntry', 'StampSuccess', 'RewardReady', 'QRScanner'];
+const CUSTOMER_SCREENS = ['Nearby', 'StampCard', 'PointsWallet', 'CustomerEntry', 'StampSuccess', 'RewardReady', 'QRScanner', 'Profile'];
 const MERCHANT_SCREENS = ['Dashboard', 'CashierQueue', 'AddPoints', 'GiftPoints', 'QRPoster', 'CashierConfirm', 'QRScanner'];
 const AUTH_SCREENS = ['PhoneLogin', 'OTP', 'RoleSelect'];
 
@@ -2505,6 +2785,7 @@ export default function App() {
     AddPoints: <AddPointsScreen navigate={navigate} params={params} />,
     GiftPoints: <GiftPointsScreen navigate={navigate} params={params} />,
     QRScanner: <QRScannerScreen navigate={navigate} params={params} />,
+    Profile: <ProfileScreen navigate={navigate} params={params} />,
     StampCard: <StampCardScreen navigate={navigate} params={params} />,
     StampSuccess: <StampSuccessScreen navigate={navigate} params={params} />,
     RewardReady: <RewardReadyScreen navigate={navigate} params={params} />,
