@@ -190,6 +190,56 @@ async function apiScanCustomerQR(token, merchantId) {
   return { customer, merchantId };
 }
 
+// Pending purchase confirmations (cashier queue)
+let pendingPurchases = [];
+
+async function apiSubmitPurchase(merchantId, amount, pointsPerStamp) {
+  await delay(600);
+  const pointsEarned = Math.floor(amount / 100) * 10;
+  const stampsToAdd = Math.floor(pointsEarned / pointsPerStamp);
+  const remainder = pointsEarned % pointsPerStamp;
+  const req = {
+    id: `pur-${Date.now()}`,
+    merchantId,
+    customerId: 'cus-001',
+    customerName: 'عبد الرحمن',
+    amount,
+    pointsEarned,
+    stampsToAdd,
+    remainder,
+    status: 'PENDING',
+    createdAt: new Date().toISOString(),
+  };
+  pendingPurchases = [req, ...pendingPurchases];
+  return req;
+}
+
+async function apiGetPendingPurchases() {
+  await delay(400);
+  return pendingPurchases.filter(p => p.status === 'PENDING');
+}
+
+async function apiConfirmPurchase(reqId) {
+  await delay(700);
+  const req = pendingPurchases.find(p => p.id === reqId);
+  if (!req) throw { message: 'طلب غير موجود' };
+  pendingPurchases = pendingPurchases.map(p =>
+    p.id === reqId ? { ...p, status: 'CONFIRMED' } : p
+  );
+  // Apply stamps and points
+  mockStamps = Math.min(mockStamps + req.stampsToAdd, REQUIRED);
+  myMerchantPoints[req.merchantId] = (myMerchantPoints[req.merchantId] || 0) + req.remainder;
+  return { ...req, status: 'CONFIRMED', newStamps: mockStamps };
+}
+
+async function apiRejectPurchase(reqId) {
+  await delay(400);
+  pendingPurchases = pendingPurchases.map(p =>
+    p.id === reqId ? { ...p, status: 'REJECTED' } : p
+  );
+  return { status: 'REJECTED' };
+}
+
 // Mock customers for merchant
 const MOCK_CUSTOMERS = [
   { id: 'c1', name: 'أحمد بن علي', phone: '0551234567', points: 240, stamps: 3, lastVisit: 'منذ يومين' },
@@ -892,16 +942,108 @@ function DashboardScreen({ navigate }) {
   );
 }
 
+// ─── COMPONENT: PURCHASE CONFIRM CARD ───────────────────────────────────────
+function PurchaseConfirmCard({ purchase, onDone }) {
+  const [status, setStatus] = useState('pending');
+  const [loading, setLoading] = useState(false);
+
+  const confirm = async () => {
+    try {
+      setLoading(true);
+      await apiConfirmPurchase(purchase.id);
+      setStatus('confirmed');
+      setTimeout(onDone, 1500);
+    } finally { setLoading(false); }
+  };
+
+  const reject = async () => {
+    try {
+      setLoading(true);
+      await apiRejectPurchase(purchase.id);
+      setStatus('rejected');
+      setTimeout(onDone, 1000);
+    } finally { setLoading(false); }
+  };
+
+  if (status === 'confirmed') return (
+    <View style={{ backgroundColor: '#F0FDF4', borderRadius: 16, padding: 16,
+      flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1.5, borderColor: '#86EFAC' }}>
+      <Text style={{ fontSize: 28 }}>✅</Text>
+      <Text style={{ fontSize: 15, fontWeight: '700', color: '#16A34A' }}>تم تأكيد المبلغ!</Text>
+    </View>
+  );
+
+  if (status === 'rejected') return (
+    <View style={{ backgroundColor: '#FFF5F5', borderRadius: 16, padding: 16,
+      flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1.5, borderColor: '#FEE2E2' }}>
+      <Text style={{ fontSize: 28 }}>❌</Text>
+      <Text style={{ fontSize: 15, fontWeight: '700', color: C.error }}>تم الرفض</Text>
+    </View>
+  );
+
+  return (
+    <View style={{ backgroundColor: C.white, borderRadius: 18, padding: 18, gap: 14,
+      borderWidth: 2, borderColor: C.primary,
+      shadowColor: C.primary, shadowOpacity: 0.1, shadowRadius: 8, elevation: 4 }}>
+
+      {/* Header */}
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        <View style={{ backgroundColor: C.primarySurface, borderRadius: 8,
+          paddingHorizontal: 10, paddingVertical: 4 }}>
+          <Text style={{ fontSize: 12, color: C.primary, fontWeight: '700' }}>تأكيد مبلغ شراء</Text>
+        </View>
+        <Text style={{ fontSize: 16, fontWeight: '700', color: C.textPrimary }}>
+          {purchase.customerName}
+        </Text>
+      </View>
+
+      {/* Amount breakdown */}
+      <View style={{ backgroundColor: C.background, borderRadius: 14, padding: 14, gap: 8 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <Text style={{ fontSize: 22, fontWeight: '900', color: C.primary }}>{purchase.amount} دج</Text>
+          <Text style={{ fontSize: 14, color: C.textSecondary }}>مبلغ الشراء</Text>
+        </View>
+        <View style={{ height: 1, backgroundColor: C.border }} />
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <Text style={{ fontSize: 15, fontWeight: '700', color: C.primary }}>
+            {purchase.stampsToAdd > 0 ? `+${purchase.stampsToAdd} طابع` : ''}
+            {purchase.remainder > 0 ? `  +${purchase.remainder} نقطة` : ''}
+          </Text>
+          <Text style={{ fontSize: 13, color: C.textSecondary }}>سيحصل على</Text>
+        </View>
+      </View>
+
+      {/* Actions */}
+      <View style={{ flexDirection: 'row', gap: 10 }}>
+        <TouchableOpacity onPress={reject} disabled={loading}
+          style={{ flex: 1, backgroundColor: '#FFF5F5', borderRadius: 14, padding: 16,
+            alignItems: 'center', borderWidth: 1.5, borderColor: '#FEE2E2' }}>
+          <Text style={{ fontSize: 15, fontWeight: '700', color: C.error }}>رفض</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={confirm} disabled={loading}
+          style={{ flex: 2, backgroundColor: C.primary, borderRadius: 14, padding: 16, alignItems: 'center' }}>
+          {loading ? <ActivityIndicator color={C.white} />
+            : <Text style={{ fontSize: 15, fontWeight: '700', color: C.white }}>تأكيد المبلغ</Text>}
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
 // ─── SCREEN: CASHIER QUEUE ────────────────────────────────────────────────────
 function CashierQueueScreen({ navigate }) {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const [purchases, setPurchases] = useState([]);
   useEffect(() => { load(); const t = setInterval(load, 3000); return () => clearInterval(t); }, []);
 
   const load = async () => {
-    try { const r = await apiGetPending(); setRequests(r); }
-    finally { setLoading(false); }
+    try {
+      const [r, p] = await Promise.all([apiGetPending(), apiGetPendingPurchases()]);
+      setRequests(r);
+      setPurchases(p);
+    } finally { setLoading(false); }
   };
 
   return (
@@ -921,7 +1063,7 @@ function CashierQueueScreen({ navigate }) {
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
             <ActivityIndicator size="large" color={C.primary} />
           </View>
-        ) : requests.length === 0 ? (
+        ) : requests.length === 0 && purchases.length === 0 ? (
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16, padding: 40 }}>
             <Text style={{ fontSize: 60 }}>⏳</Text>
             <Text style={{ fontSize: 18, fontWeight: '600', color: C.textPrimary }}>في انتظار الزبائن</Text>
@@ -932,6 +1074,10 @@ function CashierQueueScreen({ navigate }) {
           </View>
         ) : (
           <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
+            {/* Purchase confirmation requests */}
+            {purchases.map(pur => (
+              <PurchaseConfirmCard key={pur.id} purchase={pur} onDone={load} />
+            ))}
             {requests.map(req => (
               <TouchableOpacity key={req.id} onPress={() => navigate('CashierConfirm', { reqId: req.id, req, onDone: load })}
                 activeOpacity={0.85}
@@ -1214,6 +1360,163 @@ function RewardReadyScreen({ navigate }) {
 }
 
 
+// ─── COMPONENT: MIN PURCHASE FLOW ───────────────────────────────────────────
+function MinPurchaseFlow({ merchant, adding, onSent }) {
+  const [amount, setAmount] = useState('');
+  const [step, setStep] = useState('input'); // input | waiting | confirmed | rejected
+  const [reqData, setReqData] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  const pointsPerStamp = merchant?.pointsPerStamp || 50;
+  const amt = parseInt(amount) || 0;
+  const pointsEarned = Math.floor(amt / 100) * 10;
+  const stampsFromPoints = Math.floor(pointsEarned / pointsPerStamp);
+  const remainder = pointsEarned % pointsPerStamp;
+
+  useEffect(() => {
+    if (step === 'waiting') {
+      Animated.loop(Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.08, duration: 700, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 700, useNativeDriver: true }),
+      ])).start();
+      // Simulate cashier confirming after 4 seconds
+      setTimeout(async () => {
+        if (reqData) {
+          const res = await apiConfirmPurchase(reqData.id);
+          setStep('confirmed');
+          setReqData(res);
+          onSent && onSent();
+        }
+      }, 4000);
+    }
+  }, [step]);
+
+  const handleSubmit = async () => {
+    if (amt < 100) return;
+    try {
+      setSubmitting(true);
+      const req = await apiSubmitPurchase(merchant?.merchantId || 'm1', amt, pointsPerStamp);
+      setReqData(req);
+      setStep('waiting');
+    } finally { setSubmitting(false); }
+  };
+
+  if (step === 'confirmed') return (
+    <View style={{ backgroundColor: '#F0FDF4', borderRadius: 16, padding: 20, gap: 12,
+      alignItems: 'center', borderWidth: 1.5, borderColor: '#86EFAC' }}>
+      <Text style={{ fontSize: 48 }}>✅</Text>
+      <Text style={{ fontSize: 18, fontWeight: '800', color: '#16A34A' }}>تم تأكيد الكاشير!</Text>
+      <View style={{ gap: 6, width: '100%' }}>
+        {reqData?.stampsToAdd > 0 && (
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between',
+            backgroundColor: C.primarySurface, borderRadius: 10, padding: 12 }}>
+            <Text style={{ fontSize: 18, fontWeight: '900', color: C.primary }}>+{reqData.stampsToAdd} طابع</Text>
+            <Text style={{ fontSize: 14, color: C.textSecondary }}>تمت الإضافة</Text>
+          </View>
+        )}
+        {reqData?.remainder > 0 && (
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between',
+            backgroundColor: C.accentLight, borderRadius: 10, padding: 12 }}>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: C.primary }}>{reqData.remainder} نقطة محفوظة</Text>
+            <Text style={{ fontSize: 14, color: C.textSecondary }}>للطابع القادم</Text>
+          </View>
+        )}
+      </View>
+    </View>
+  );
+
+  if (step === 'waiting') return (
+    <View style={{ gap: 12 }}>
+      <Animated.View style={{ transform: [{ scale: pulseAnim }],
+        backgroundColor: C.primary, borderRadius: 16, padding: 20, alignItems: 'center', gap: 12 }}>
+        <Text style={{ fontSize: 36 }}>⏳</Text>
+        <Text style={{ fontSize: 16, fontWeight: '700', color: C.white }}>في انتظار تأكيد الكاشير</Text>
+        <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', textAlign: 'center' }}>
+          أظهر هذه الشاشة للموظف
+        </Text>
+        <View style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 12, padding: 14,
+          width: '100%', gap: 6 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <Text style={{ fontSize: 16, fontWeight: '800', color: C.accent }}>{reqData?.amount} دج</Text>
+            <Text style={{ fontSize: 14, color: 'rgba(255,255,255,0.7)' }}>مبلغ الشراء</Text>
+          </View>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <Text style={{ fontSize: 14, color: C.accent }}>{reqData?.stampsToAdd} طابع + {reqData?.remainder} نقطة</Text>
+            <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>ستُضاف بعد التأكيد</Text>
+          </View>
+        </View>
+      </Animated.View>
+      <ActivityIndicator color={C.primary} size="large" />
+    </View>
+  );
+
+  // Input step
+  return (
+    <View style={{ gap: 12 }}>
+      <Text style={{ fontSize: 14, fontWeight: '600', color: C.textPrimary, textAlign: 'right' }}>
+        أدخل مبلغ الشراء (دج)
+      </Text>
+
+      {/* Quick amounts */}
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        {[500, 1000, 1500, 2000].map(n => (
+          <TouchableOpacity key={n} onPress={() => setAmount(String(n))}
+            style={{ flex: 1, backgroundColor: amount === String(n) ? C.primary : C.background,
+              borderRadius: 10, padding: 10, alignItems: 'center',
+              borderWidth: 1.5, borderColor: amount === String(n) ? C.primary : C.border }}>
+            <Text style={{ fontSize: 13, fontWeight: '700',
+              color: amount === String(n) ? C.white : C.textSecondary }}>{n}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <TextInput value={amount} onChangeText={setAmount}
+        placeholder="أو أدخل مبلغاً مخصصاً" placeholderTextColor={C.textMuted}
+        keyboardType="number-pad"
+        style={{ borderWidth: 2, borderColor: amt >= 100 ? C.primary : C.border,
+          borderRadius: 14, padding: 16, fontSize: 22, color: C.textPrimary,
+          textAlign: 'center', fontWeight: '700', backgroundColor: C.background }} />
+
+      {/* Live preview */}
+      {amt >= 100 && (
+        <View style={{ backgroundColor: C.primarySurface, borderRadius: 14, padding: 14, gap: 8 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <Text style={{ fontSize: 14, color: C.textSecondary }}>{pointsEarned} نقطة</Text>
+            <Text style={{ fontSize: 14, color: C.textSecondary }}>ستكسب</Text>
+          </View>
+          <View style={{ height: 1, backgroundColor: C.border }} />
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+              {stampsFromPoints > 0 && (
+                <View style={{ backgroundColor: C.primary, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}>
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: C.white }}>+{stampsFromPoints} طابع</Text>
+                </View>
+              )}
+              {remainder > 0 && (
+                <View style={{ backgroundColor: C.accentLight, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: C.primary }}>{remainder} نقطة محفوظة</Text>
+                </View>
+              )}
+            </View>
+            <Text style={{ fontSize: 13, color: C.textSecondary }}>النتيجة</Text>
+          </View>
+        </View>
+      )}
+
+      <TouchableOpacity onPress={handleSubmit} disabled={submitting || amt < 100}
+        style={{ backgroundColor: amt >= 100 ? C.primary : C.border,
+          borderRadius: 16, padding: 18, alignItems: 'center',
+          shadowColor: C.primary, shadowOpacity: amt >= 100 ? 0.3 : 0, shadowRadius: 8, elevation: amt >= 100 ? 4 : 0 }}>
+        {submitting ? <ActivityIndicator color={C.white} />
+          : <Text style={{ fontSize: 17, fontWeight: '800', color: amt >= 100 ? C.white : C.textMuted }}>
+              {amt < 100 ? 'أدخل المبلغ' : 'إرسال للكاشير للتأكيد'}
+            </Text>}
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 // ─── COMPONENT: QR SCAN RESULT ───────────────────────────────────────────────
 function QRScanResult({ result, adding, onAddStamp, onAddPoints }) {
   const [purchaseAmount, setPurchaseAmount] = useState('');
@@ -1283,54 +1586,9 @@ function QRScanResult({ result, adding, onAddStamp, onAddPoints }) {
         </TouchableOpacity>
       )}
 
-      {/* MIN_PURCHASE: enter amount */}
+      {/* MIN_PURCHASE: enter amount + send to cashier */}
       {isMinPurchase && (
-        <View style={{ gap: 12 }}>
-          <Text style={{ fontSize: 14, fontWeight: '600', color: C.textPrimary, textAlign: 'right' }}>
-            أدخل مبلغ الشراء (دج)
-          </Text>
-          <TextInput value={purchaseAmount} onChangeText={setPurchaseAmount}
-            placeholder="مثال: 1500" placeholderTextColor={C.textMuted}
-            keyboardType="number-pad" autoFocus
-            style={{ borderWidth: 2, borderColor: amount > 0 ? C.primary : C.border,
-              borderRadius: 14, padding: 16, fontSize: 24, color: C.textPrimary,
-              textAlign: 'center', fontWeight: '700', backgroundColor: C.background }} />
-
-          {/* Live calculation */}
-          {amount >= 100 && (
-            <View style={{ backgroundColor: C.primarySurface, borderRadius: 14, padding: 14, gap: 8 }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                <Text style={{ fontSize: 14, color: C.textSecondary }}>{pointsEarned} نقطة</Text>
-                <Text style={{ fontSize: 14, color: C.textSecondary }}>النقاط المكتسبة</Text>
-              </View>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                <Text style={{ fontSize: 14, color: C.accent, fontWeight: '600' }}>{remainder} نقطة محفوظة</Text>
-                <Text style={{ fontSize: 14, color: C.textSecondary }}>الباقي</Text>
-              </View>
-              <View style={{ height: 1, backgroundColor: C.border }} />
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text style={{ fontSize: 20, fontWeight: '900', color: C.primary }}>{stampsFromPoints} طابع</Text>
-                <Text style={{ fontSize: 14, fontWeight: '600', color: C.primary }}>ستُضاف تلقائياً</Text>
-              </View>
-            </View>
-          )}
-
-          <TouchableOpacity
-            onPress={() => {
-              if (stampsFromPoints > 0) onAddStamp();
-              else onAddPoints();
-            }}
-            disabled={adding || amount < 100}
-            style={{ backgroundColor: amount >= 100 ? C.primary : C.border,
-              borderRadius: 16, padding: 18, alignItems: 'center', opacity: adding ? 0.6 : 1 }}>
-            {adding ? <ActivityIndicator color={C.white} />
-              : <Text style={{ fontSize: 17, fontWeight: '800', color: amount >= 100 ? C.white : C.textMuted }}>
-                  {amount < 100 ? 'أدخل المبلغ'
-                    : stampsFromPoints > 0 ? `إضافة ${stampsFromPoints} طابع + ${remainder} نقطة`
-                    : `إضافة ${pointsEarned} نقطة (باقي ${pointsPerStamp - pointsEarned} للطابع)`}
-                </Text>}
-          </TouchableOpacity>
-        </View>
+        <MinPurchaseFlow merchant={merchant} adding={adding} onSent={onAddPoints} />
       )}
     </View>
   );
