@@ -114,6 +114,28 @@ async function apiConvertPointsToStamp(merchantId, pointsPerStamp) {
   mockStamps = Math.min(mockStamps + stampsToAdd, REQUIRED);
   return { stampsAdded: stampsToAdd, remainingPoints: remainder, newTotal: mockStamps };
 }
+
+// Mock customers for merchant
+const MOCK_CUSTOMERS = [
+  { id: 'c1', name: 'أحمد بن علي', phone: '0551234567', points: 240, stamps: 3, lastVisit: 'منذ يومين' },
+  { id: 'c2', name: 'فاطمة زهراء', phone: '0661234567', points: 80, stamps: 1, lastVisit: 'منذ أسبوع' },
+  { id: 'c3', name: 'محمد أمين', phone: '0771234567', points: 150, stamps: 5, lastVisit: 'اليوم' },
+  { id: 'c4', name: 'خديجة بوعلي', phone: '0551239999', points: 0, stamps: 2, lastVisit: 'منذ 3 أيام' },
+];
+let customerPointsFromMerchant = { c1: 240, c2: 80, c3: 150, c4: 0 };
+
+async function apiGetCustomers(search = '') {
+  await delay(500);
+  if (!search) return MOCK_CUSTOMERS;
+  return MOCK_CUSTOMERS.filter(c =>
+    c.name.includes(search) || c.phone.includes(search)
+  );
+}
+async function apiGiftPoints(customerId, amount) {
+  await delay(700);
+  customerPointsFromMerchant[customerId] = (customerPointsFromMerchant[customerId] || 0) + amount;
+  return { success: true, newTotal: customerPointsFromMerchant[customerId] };
+}
 // ─── MOCK MERCHANTS NEARBY ────────────────────────────────────────────────────
 const NEARBY_MERCHANTS = [
   { id: 'm1', name: 'كافيه الأصيل', category: 'CAFE', distance: '120م', rating: 4.8, joined: true, stamps: 3, required: 6, points: 240 },
@@ -415,9 +437,8 @@ function RoleSelectScreen({ navigate }) {
   );
 }
 
-// ─── SCREEN: MERCHANT SETUP ───────────────────────────────────────────────────
+// ─── SCREEN: MERCHANT SETUP (Single Page) ────────────────────────────────────
 function MerchantSetupScreen({ navigate }) {
-  const [step, setStep] = useState(1);
   const [name, setName] = useState('');
   const [category, setCategory] = useState(null);
   const [rewardLabel, setRewardLabel] = useState('');
@@ -426,8 +447,19 @@ function MerchantSetupScreen({ navigate }) {
   const [minAmount, setMinAmount] = useState('');
   const [pointsPerStamp, setPointsPerStamp] = useState(50);
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState({});
+
+  const validate = () => {
+    const e = {};
+    if (!name.trim() || name.trim().length < 2) e.name = 'أدخل اسم المحل';
+    if (!category) e.category = 'اختر صنف المحل';
+    if (!rewardLabel.trim()) e.reward = 'أدخل نص الهدية';
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  };
 
   const handleCreate = async () => {
+    if (!validate()) return;
     try {
       setLoading(true);
       await apiCreateMerchant(name, category);
@@ -437,187 +469,186 @@ function MerchantSetupScreen({ navigate }) {
     finally { setLoading(false); }
   };
 
-  const ProgressBar = ({ current, total, label }) => (
-    <View style={{ gap: 8 }}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-        <Text style={{ fontSize: 13, color: C.textMuted }}>الخطوة {current} من {total}</Text>
-        <Text style={{ fontSize: 13, color: C.primary, fontWeight: '600' }}>{label}</Text>
-      </View>
-      <View style={{ height: 4, backgroundColor: C.border, borderRadius: 99 }}>
-        <View style={{ width: `${(current/total)*100}%`, height: '100%', backgroundColor: C.primary, borderRadius: 99 }} />
-      </View>
-    </View>
-  );
-
-  // ── Step 1 ──
-  if (step === 1) {
-    return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: C.background }}>
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-          <View style={{ flex: 1, padding: 24, gap: 24 }}>
-            <ProgressBar current={1} total={3} label="معلومات المحل" />
-            <View style={{ flex: 1, justifyContent: 'center', gap: 24 }}>
-              <View style={{ alignItems: 'center', gap: 8 }}>
-                <Text style={{ fontSize: 40 }}>🏪</Text>
-                <Text style={{ fontSize: 22, fontWeight: '700', color: C.textPrimary }}>ما اسم محلك؟</Text>
-              </View>
-              <TextInput value={name} onChangeText={setName}
-                placeholder="مثال: كافيه الأصيل" placeholderTextColor={C.textMuted}
-                style={{ borderWidth: 1.5, borderColor: C.border, borderRadius: 14, padding: 16,
-                  fontSize: 18, color: C.textPrimary, backgroundColor: C.white, textAlign: 'right' }}
-                maxLength={40} autoFocus />
-              <Btn label="التالي" onPress={() => setStep(2)} disabled={name.trim().length < 2} />
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-    );
-  }
-
-  // ── Step 2 ──
-  if (step === 2) {
-    return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: C.background }}>
-        <View style={{ flex: 1, padding: 24, gap: 24 }}>
-          <ProgressBar current={2} total={3} label="صنف المحل" />
-          <View style={{ flex: 1, justifyContent: 'center', gap: 16 }}>
-            <Text style={{ fontSize: 22, fontWeight: '700', color: C.textPrimary, textAlign: 'center' }}>ما صنف محلك؟</Text>
-            <Text style={{ fontSize: 14, color: C.textSecondary, textAlign: 'center' }}>سيحدد التصميم والإعدادات الافتراضية</Text>
-            {Object.entries(CATEGORY_ICONS).map(([key, icon]) => (
-              <TouchableOpacity key={key} onPress={() => setCategory(key)} activeOpacity={0.85}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 16, padding: 20, borderRadius: 16,
-                  backgroundColor: category === key ? C.primary : C.white,
-                  borderWidth: 2, borderColor: category === key ? C.primary : C.border }}>
-                <Text style={{ fontSize: 36 }}>{icon}</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: category === key ? C.white : C.textPrimary }}>
-                    {CATEGORY_NAMES[key]}
-                  </Text>
-                  <Text style={{ fontSize: 13, color: category === key ? 'rgba(255,255,255,0.7)' : C.textMuted }}>
-                    {CATEGORY_STAMPS[key]} طوابع افتراضية
-                  </Text>
-                </View>
-                {category === key && <Text style={{ fontSize: 20 }}>✅</Text>}
-              </TouchableOpacity>
-            ))}
-            <View style={{ flexDirection: 'row', gap: 12 }}>
-              <Btn label="رجوع" onPress={() => setStep(1)} variant="ghost" style={{ flex: 1 }} />
-              <Btn label="التالي" onPress={() => { setStamps(CATEGORY_STAMPS[category]); setStep(3); }}
-                disabled={!category} style={{ flex: 2 }} />
-            </View>
-          </View>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  // ── Step 3 ──
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: C.background }}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <LoadingModal visible={loading} message="جارٍ إنشاء المحل..." />
-        <ScrollView contentContainerStyle={{ padding: 24, gap: 20 }}>
-          <ProgressBar current={3} total={3} label="إعداد الهدية" />
-          <Text style={{ fontSize: 22, fontWeight: '700', color: C.textPrimary, textAlign: 'center' }}>ما هي الهدية؟</Text>
+      <LoadingModal visible={loading} message="جارٍ إنشاء المحل..." />
+      <ScrollView contentContainerStyle={{ padding: 16, gap: 20, paddingBottom: 40 }}
+        keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
-          <View style={{ gap: 8 }}>
-            <Text style={{ fontSize: 14, fontWeight: '600', color: C.textPrimary, textAlign: 'right' }}>نص الهدية</Text>
-            <TextInput value={rewardLabel} onChangeText={setRewardLabel}
-              placeholder="مثال: قهوة مجانية" placeholderTextColor={C.textMuted}
-              style={{ borderWidth: 1.5, borderColor: C.border, borderRadius: 14, padding: 16,
-                fontSize: 16, color: C.textPrimary, backgroundColor: C.white, textAlign: 'right' }}
-              maxLength={60} />
+        {/* Header */}
+        <View style={{ backgroundColor: C.primary, borderRadius: 20, padding: 20, alignItems: 'center', gap: 6 }}>
+          <Text style={{ fontSize: 28 }}>🏪</Text>
+          <Text style={{ fontSize: 22, fontWeight: '800', color: C.white }}>إنشاء محلك</Text>
+          <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>أملأ المعلومات وابدأ في دقائق</Text>
+        </View>
+
+        {/* Section 1: Store Info */}
+        <View style={{ backgroundColor: C.white, borderRadius: 18, padding: 18, gap: 14,
+          shadowColor: C.primary, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2 }}>
+          <Text style={{ fontSize: 16, fontWeight: '700', color: C.textPrimary, textAlign: 'right' }}>
+            معلومات المحل
+          </Text>
+
+          {/* Name */}
+          <View style={{ gap: 6 }}>
+            <Text style={{ fontSize: 13, color: C.textSecondary, textAlign: 'right' }}>اسم المحل *</Text>
+            <TextInput value={name} onChangeText={t => { setName(t); setErrors(e => ({...e, name: null})); }}
+              placeholder="مثال: كافيه الأصيل" placeholderTextColor={C.textMuted} maxLength={40}
+              style={{ borderWidth: 1.5, borderColor: errors.name ? C.error : C.border,
+                borderRadius: 12, padding: 14, fontSize: 16, color: C.textPrimary,
+                backgroundColor: C.background, textAlign: 'right' }} />
+            {errors.name && <Text style={{ fontSize: 12, color: C.error, textAlign: 'right' }}>{errors.name}</Text>}
           </View>
 
+          {/* Category */}
           <View style={{ gap: 8 }}>
-            <Text style={{ fontSize: 14, fontWeight: '600', color: C.textPrimary, textAlign: 'right' }}>
-              عدد الطوابع المطلوبة: {stamps}
-            </Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, justifyContent: 'center' }}>
+            <Text style={{ fontSize: 13, color: C.textSecondary, textAlign: 'right' }}>صنف المحل *</Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              {Object.entries(CATEGORY_ICONS).map(([key, icon]) => (
+                <TouchableOpacity key={key} onPress={() => { setCategory(key); setStamps(CATEGORY_STAMPS[key]); setErrors(e => ({...e, category: null})); }}
+                  style={{ flex: 1, alignItems: 'center', padding: 12, borderRadius: 14,
+                    backgroundColor: category === key ? C.primary : C.background,
+                    borderWidth: 2, borderColor: category === key ? C.primary : C.border }}>
+                  <Text style={{ fontSize: 28 }}>{icon}</Text>
+                  <Text style={{ fontSize: 11, fontWeight: '600', marginTop: 4,
+                    color: category === key ? C.white : C.textSecondary }}>{CATEGORY_NAMES[key]}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            {errors.category && <Text style={{ fontSize: 12, color: C.error, textAlign: 'right' }}>{errors.category}</Text>}
+          </View>
+        </View>
+
+        {/* Section 2: Reward */}
+        <View style={{ backgroundColor: C.white, borderRadius: 18, padding: 18, gap: 14,
+          shadowColor: C.primary, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2 }}>
+          <Text style={{ fontSize: 16, fontWeight: '700', color: C.textPrimary, textAlign: 'right' }}>
+            برنامج الولاء
+          </Text>
+
+          {/* Reward label */}
+          <View style={{ gap: 6 }}>
+            <Text style={{ fontSize: 13, color: C.textSecondary, textAlign: 'right' }}>الهدية *</Text>
+            <TextInput value={rewardLabel} onChangeText={t => { setRewardLabel(t); setErrors(e => ({...e, reward: null})); }}
+              placeholder="مثال: قهوة مجانية" placeholderTextColor={C.textMuted} maxLength={60}
+              style={{ borderWidth: 1.5, borderColor: errors.reward ? C.error : C.border,
+                borderRadius: 12, padding: 14, fontSize: 16, color: C.textPrimary,
+                backgroundColor: C.background, textAlign: 'right' }} />
+            {errors.reward && <Text style={{ fontSize: 12, color: C.error, textAlign: 'right' }}>{errors.reward}</Text>}
+          </View>
+
+          {/* Stamps count */}
+          <View style={{ gap: 8 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <Text style={{ fontSize: 13, color: C.textMuted }}>بين 3 و 15</Text>
+              <Text style={{ fontSize: 13, color: C.textSecondary }}>عدد الطوابع المطلوبة</Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, justifyContent: 'center',
+              backgroundColor: C.background, borderRadius: 12, padding: 12 }}>
               <TouchableOpacity onPress={() => setStamps(s => Math.max(3, s - 1))}
-                style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: C.border, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ fontSize: 24, fontWeight: '700', color: C.textPrimary }}>-</Text>
+                style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: C.border,
+                  alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontSize: 22, fontWeight: '700', color: C.textPrimary }}>-</Text>
               </TouchableOpacity>
               <Text style={{ fontSize: 40, fontWeight: '900', color: C.primary, width: 60, textAlign: 'center' }}>{stamps}</Text>
               <TouchableOpacity onPress={() => setStamps(s => Math.min(15, s + 1))}
-                style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ fontSize: 24, fontWeight: '700', color: C.white }}>+</Text>
+                style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: C.primary,
+                  alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontSize: 22, fontWeight: '700', color: C.white }}>+</Text>
               </TouchableOpacity>
             </View>
-            <Text style={{ fontSize: 12, color: C.textMuted, textAlign: 'center' }}>بين 3 و 15 طابع</Text>
           </View>
 
+          {/* Strategy */}
           <View style={{ gap: 8 }}>
-            <Text style={{ fontSize: 14, fontWeight: '600', color: C.textPrimary, textAlign: 'right' }}>قاعدة المنح</Text>
-            {[
-              { key: 'PER_VISIT', label: 'كل زيارة مؤهلة', desc: 'طابع لكل زيارة يؤكدها الكاشير', icon: '🚶' },
-              { key: 'MIN_PURCHASE', label: 'شراء بحد أدنى', desc: 'طابع عند شراء فوق مبلغ معين', icon: '💰' },
-            ].map(s => (
-              <TouchableOpacity key={s.key} onPress={() => setStrategy(s.key)} activeOpacity={0.85}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderRadius: 14,
-                  backgroundColor: strategy === s.key ? C.primarySurface : C.white,
-                  borderWidth: 1.5, borderColor: strategy === s.key ? C.primary : C.border }}>
-                <Text style={{ fontSize: 24 }}>{s.icon}</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 15, fontWeight: '600', color: C.textPrimary }}>{s.label}</Text>
-                  <Text style={{ fontSize: 12, color: C.textSecondary }}>{s.desc}</Text>
-                </View>
-                {strategy === s.key && <View style={{ width: 20, height: 20, borderRadius: 10,
-                  backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center' }}>
-                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: C.white }} />
-                </View>}
-              </TouchableOpacity>
-            ))}
+            <Text style={{ fontSize: 13, color: C.textSecondary, textAlign: 'right' }}>قاعدة منح الطابع</Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              {[
+                { key: 'PER_VISIT', label: 'كل زيارة', icon: '🚶' },
+                { key: 'MIN_PURCHASE', label: 'حد أدنى', icon: '💰' },
+              ].map(s => (
+                <TouchableOpacity key={s.key} onPress={() => setStrategy(s.key)}
+                  style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, padding: 14,
+                    borderRadius: 12, backgroundColor: strategy === s.key ? C.primarySurface : C.background,
+                    borderWidth: 1.5, borderColor: strategy === s.key ? C.primary : C.border }}>
+                  <Text style={{ fontSize: 20 }}>{s.icon}</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '600',
+                    color: strategy === s.key ? C.primary : C.textSecondary }}>{s.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
 
           {strategy === 'MIN_PURCHASE' && (
-            <View style={{ gap: 8 }}>
-              <Text style={{ fontSize: 14, fontWeight: '600', color: C.textPrimary, textAlign: 'right' }}>
-                الحد الأدنى للشراء (دج)
-              </Text>
-              <TextInput value={minAmount} onChangeText={setMinAmount}
-                placeholder="مثال: 500" placeholderTextColor={C.textMuted} keyboardType="number-pad"
-                style={{ borderWidth: 1.5, borderColor: C.border, borderRadius: 14, padding: 16,
-                  fontSize: 16, color: C.textPrimary, backgroundColor: C.white, textAlign: 'right' }} />
-            </View>
+            <TextInput value={minAmount} onChangeText={setMinAmount}
+              placeholder="الحد الأدنى للشراء بالدج" placeholderTextColor={C.textMuted} keyboardType="number-pad"
+              style={{ borderWidth: 1.5, borderColor: C.border, borderRadius: 12, padding: 14,
+                fontSize: 16, color: C.textPrimary, backgroundColor: C.background, textAlign: 'right' }} />
           )}
+        </View>
 
-          <View style={{ gap: 8 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Text style={{ fontSize: 13, color: C.textMuted }}>{pointsPerStamp} نقطة = طابع</Text>
-              <Text style={{ fontSize: 14, fontWeight: '600', color: C.textPrimary, textAlign: 'right' }}>
-                تحويل النقاط إلى طوابع
-              </Text>
+        {/* Section 3: Points */}
+        <View style={{ backgroundColor: C.white, borderRadius: 18, padding: 18, gap: 14,
+          shadowColor: C.primary, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2 }}>
+          <Text style={{ fontSize: 16, fontWeight: '700', color: C.textPrimary, textAlign: 'right' }}>
+            نظام النقاط
+          </Text>
+          <View style={{ gap: 6 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <Text style={{ fontSize: 13, color: C.textMuted }}>{pointsPerStamp} نقطة = طابع واحد</Text>
+              <Text style={{ fontSize: 13, color: C.textSecondary }}>معدل تحويل النقاط</Text>
             </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, justifyContent: 'center',
-              backgroundColor: C.white, borderRadius: 14, padding: 16, borderWidth: 1.5, borderColor: C.border }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, justifyContent: 'center',
+              backgroundColor: C.background, borderRadius: 12, padding: 12 }}>
               <TouchableOpacity onPress={() => setPointsPerStamp(p => Math.max(10, p - 10))}
-                style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: C.border, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ fontSize: 22, fontWeight: '700', color: C.textPrimary }}>-</Text>
+                style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: C.border,
+                  alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontSize: 20, fontWeight: '700' }}>-</Text>
               </TouchableOpacity>
-              <View style={{ alignItems: 'center' }}>
-                <Text style={{ fontSize: 36, fontWeight: '900', color: C.primary }}>{pointsPerStamp}</Text>
-                <Text style={{ fontSize: 12, color: C.textMuted }}>نقطة = طابع</Text>
-              </View>
+              <Text style={{ fontSize: 34, fontWeight: '900', color: C.primary, width: 70, textAlign: 'center' }}>
+                {pointsPerStamp}
+              </Text>
               <TouchableOpacity onPress={() => setPointsPerStamp(p => Math.min(500, p + 10))}
-                style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ fontSize: 22, fontWeight: '700', color: C.white }}>+</Text>
+                style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: C.primary,
+                  alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontSize: 20, fontWeight: '700', color: C.white }}>+</Text>
               </TouchableOpacity>
             </View>
             <View style={{ backgroundColor: C.accentLight, borderRadius: 10, padding: 10 }}>
               <Text style={{ fontSize: 12, color: C.primary, textAlign: 'center' }}>
-                الزبون يحول نقاطه إلى طوابع متى أراد — الباقي يبقى محفوظاً
+                الزبون يحول نقاطه إلى طوابع — الباقي يُحفظ تلقائياً
               </Text>
             </View>
           </View>
+        </View>
 
-          <View style={{ flexDirection: 'row', gap: 12 }}>
-            <Btn label="رجوع" onPress={() => setStep(2)} variant="ghost" style={{ flex: 1 }} />
-            <Btn label="إنشاء المحل" onPress={handleCreate} loading={loading}
-              disabled={!rewardLabel.trim()} style={{ flex: 2 }} />
+        {/* Preview */}
+        {name && category && rewardLabel && (
+          <View style={{ backgroundColor: C.primary, borderRadius: 18, padding: 18, gap: 10 }}>
+            <Text style={{ fontSize: 14, fontWeight: '700', color: 'rgba(255,255,255,0.7)', textAlign: 'right' }}>
+              معاينة البطاقة
+            </Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <View style={{ backgroundColor: C.accent, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6 }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: C.primary }}>{stamps} طوابع</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={{ fontSize: 18, fontWeight: '700', color: C.white }}>{name}</Text>
+                <Text style={{ fontSize: 26 }}>{CATEGORY_ICONS[category]}</Text>
+              </View>
+            </View>
+            <View style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 10, padding: 10,
+              flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: C.accent }}>{rewardLabel}</Text>
+              <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>الهدية</Text>
+            </View>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        )}
+
+        <Btn label="إنشاء المحل" onPress={handleCreate} loading={loading}
+          disabled={!name || !category || !rewardLabel} />
+
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -1371,7 +1402,7 @@ function ConvertPointsSection({ navigate }) {
 // ─── SCREEN: POINTS WALLET ────────────────────────────────────────────────────
 function PointsWalletScreen({ navigate }) {
   const [zidmePoints, setZidmePoints] = useState(myZidmePoints);
-  const [merchantPoints] = useState(myMerchantPoints);
+  const [merchantPoints, setMerchantPoints] = useState({...myMerchantPoints});
   const [showShare, setShowShare] = useState(false);
   const [sharePhone, setSharePhone] = useState('');
   const [shareAmount, setShareAmount] = useState('');
@@ -1383,15 +1414,18 @@ function PointsWalletScreen({ navigate }) {
 
   const handleShare = async () => {
     const amount = parseInt(shareAmount);
-    if (!sharePhone || !amount || amount > zidmePoints) return;
+    const available = merchantPoints[shareMerchant] || 0;
+    if (!sharePhone || !amount || amount > available || !shareMerchant) return;
     try {
       setSharing(true);
-      const res = await apiSharePoints(sharePhone, amount);
-      myZidmePoints = res.remaining;
-      setZidmePoints(res.remaining);
+      await apiSharePoints(sharePhone, amount);
+      const updated = { ...merchantPoints };
+      updated[shareMerchant] = available - amount;
+      setMerchantPoints(updated);
+      myMerchantPoints[shareMerchant] = updated[shareMerchant];
       setShareSuccess(true);
       setSharePhone(''); setShareAmount('');
-      setTimeout(() => { setShareSuccess(false); setShowShare(false); }, 2000);
+      setTimeout(() => { setShareSuccess(false); setShowShare(false); setShareMerchant(null); }, 2500);
     } finally { setSharing(false); }
   };
 
@@ -1430,10 +1464,6 @@ function PointsWalletScreen({ navigate }) {
             </Text>
           </View>
           <View style={{ flexDirection: 'row', gap: 10 }}>
-            <TouchableOpacity onPress={() => setShowShare(true)}
-              style={{ flex: 1, backgroundColor: C.accent, borderRadius: 12, padding: 12, alignItems: 'center' }}>
-              <Text style={{ fontSize: 14, fontWeight: '700', color: C.primary }}>مشاركة نقاط</Text>
-            </TouchableOpacity>
             <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 12,
               padding: 12, alignItems: 'center', justifyContent: 'center' }}>
               <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>استبدال — قريباً</Text>
@@ -1441,34 +1471,40 @@ function PointsWalletScreen({ navigate }) {
           </View>
         </View>
 
-        {/* Merchant Points */}
-        <View style={{ backgroundColor: C.white, borderRadius: 20, padding: 20, gap: 14,
-          shadowColor: C.primary, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text style={{ fontSize: 14, color: C.textSecondary }}>{totalMerchantPts} نقطة إجمالي</Text>
-            <Text style={{ fontSize: 16, fontWeight: '700', color: C.textPrimary }}>نقاط المحلات</Text>
-          </View>
-          {NEARBY_MERCHANTS.filter(m => merchantPoints[m.id] > 0).map(m => (
-            <View key={m.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 12,
-              paddingVertical: 10, borderTopWidth: 1, borderTopColor: C.borderLight }}>
-              <View style={{ backgroundColor: C.accentLight, borderRadius: 10,
-                paddingHorizontal: 10, paddingVertical: 4 }}>
-                <Text style={{ fontSize: 13, fontWeight: '700', color: C.primary }}>
-                  {merchantPoints[m.id]}
-                </Text>
+        {/* Per-Merchant Points with Share */}
+        <View style={{ gap: 12 }}>
+          <Text style={{ fontSize: 16, fontWeight: '700', color: C.textPrimary, textAlign: 'right' }}>
+            نقاط كل محل
+          </Text>
+          {NEARBY_MERCHANTS.filter(m => (merchantPoints[m.id] || 0) >= 0).map(m => (
+            <View key={m.id} style={{ backgroundColor: C.white, borderRadius: 16, padding: 16, gap: 12,
+              shadowColor: C.primary, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <View style={{ backgroundColor: C.accentLight, borderRadius: 10,
+                  paddingHorizontal: 12, paddingVertical: 5 }}>
+                  <Text style={{ fontSize: 16, fontWeight: '800', color: C.primary }}>
+                    {merchantPoints[m.id] || 0}
+                  </Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Text style={{ fontSize: 16, fontWeight: '600', color: C.textPrimary }}>{m.name}</Text>
+                  <Text style={{ fontSize: 26 }}>{CATEGORY_ICONS[m.category]}</Text>
+                </View>
               </View>
-              <View style={{ flex: 1, alignItems: 'flex-end' }}>
-                <Text style={{ fontSize: 15, fontWeight: '600', color: C.textPrimary }}>{m.name}</Text>
-                <Text style={{ fontSize: 12, color: C.textMuted }}>{CATEGORY_NAMES[m.category]}</Text>
-              </View>
-              <Text style={{ fontSize: 24 }}>{CATEGORY_ICONS[m.category]}</Text>
+              {(merchantPoints[m.id] || 0) > 0 && (
+                <TouchableOpacity
+                  onPress={() => { setShareMerchant(m.id); setShowShare(true); }}
+                  style={{ backgroundColor: C.primarySurface, borderRadius: 10, padding: 10,
+                    flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6,
+                    borderWidth: 1, borderColor: C.border }}>
+                  <Text style={{ fontSize: 14 }}>🔄</Text>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: C.primary }}>
+                    مشاركة نقاط {m.name}
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           ))}
-          {totalMerchantPts === 0 && (
-            <Text style={{ fontSize: 14, color: C.textMuted, textAlign: 'center', padding: 12 }}>
-              لا توجد نقاط بعد — ابدأ بالتسوق!
-            </Text>
-          )}
         </View>
 
         {/* Convert Points to Stamps */}
@@ -1534,11 +1570,20 @@ function PointsWalletScreen({ navigate }) {
                   <Text style={{ fontSize: 18, fontWeight: '700', color: C.textPrimary }}>مشاركة النقاط</Text>
                 </View>
 
-                {/* Balance */}
-                <View style={{ backgroundColor: C.primarySurface, borderRadius: 12, padding: 14, alignItems: 'center' }}>
-                  <Text style={{ fontSize: 13, color: C.textSecondary }}>رصيدك المتاح</Text>
-                  <Text style={{ fontSize: 32, fontWeight: '900', color: C.primary }}>{zidmePoints} نقطة</Text>
-                </View>
+                {/* Balance - per merchant */}
+                {shareMerchant && (
+                  <View style={{ backgroundColor: C.primarySurface, borderRadius: 12, padding: 14, gap: 4 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text style={{ fontSize: 22, fontWeight: '900', color: C.primary }}>
+                        {merchantPoints[shareMerchant] || 0} نقطة
+                      </Text>
+                      <Text style={{ fontSize: 13, color: C.textSecondary }}>رصيدك في</Text>
+                    </View>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: C.primary, textAlign: 'right' }}>
+                      {NEARBY_MERCHANTS.find(m => m.id === shareMerchant)?.name}
+                    </Text>
+                  </View>
+                )}
 
                 {/* Phone */}
                 <TextInput value={sharePhone} onChangeText={setSharePhone}
@@ -1598,12 +1643,193 @@ function PointsWalletScreen({ navigate }) {
                 </View>
 
                 <Btn label="شارك النقاط" onPress={handleShare} loading={sharing}
-                  disabled={!sharePhone || !shareAmount || parseInt(shareAmount) > zidmePoints} />
+                  disabled={!sharePhone || !shareAmount || !shareMerchant ||
+                    parseInt(shareAmount) > (merchantPoints[shareMerchant] || 0)} />
               </>
             )}
           </View>
         </View>
       </Modal>
+    </SafeAreaView>
+  );
+}
+
+// ─── SCREEN: GIFT POINTS (Merchant to Customer) ──────────────────────────────
+function GiftPointsScreen({ navigate }) {
+  const [search, setSearch] = useState('');
+  const [customers, setCustomers] = useState(MOCK_CUSTOMERS);
+  const [selected, setSelected] = useState(null);
+  const [amount, setAmount] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(null);
+
+  const handleSearch = async (text) => {
+    setSearch(text);
+    const res = await apiGetCustomers(text);
+    setCustomers(res);
+  };
+
+  const handleGift = async () => {
+    if (!selected || !amount || parseInt(amount) <= 0) return;
+    try {
+      setLoading(true);
+      const res = await apiGiftPoints(selected.id, parseInt(amount));
+      setSuccess({ customer: selected, amount: parseInt(amount), total: res.newTotal });
+      setSelected(null); setAmount(''); setSearch('');
+      setCustomers(MOCK_CUSTOMERS);
+      setTimeout(() => setSuccess(null), 3000);
+    } finally { setLoading(false); }
+  };
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: C.background }}>
+      <View style={{ backgroundColor: C.primary, padding: 20 }}>
+        <Text style={{ fontSize: 20, fontWeight: '700', color: C.white, textAlign: 'right' }}>
+          إهداء نقاط لزبون
+        </Text>
+        <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', textAlign: 'right' }}>
+          ابحث عن زبون أو اختره من القائمة
+        </Text>
+      </View>
+
+      <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }} keyboardShouldPersistTaps="handled">
+
+        {/* Success banner */}
+        {success && (
+          <View style={{ backgroundColor: '#F0FDF4', borderRadius: 16, padding: 16, gap: 6,
+            borderWidth: 1.5, borderColor: '#86EFAC', flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <Text style={{ fontSize: 32 }}>🎁</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 15, fontWeight: '700', color: '#16A34A', textAlign: 'right' }}>
+                تم الإهداء بنجاح!
+              </Text>
+              <Text style={{ fontSize: 13, color: '#15803D', textAlign: 'right' }}>
+                {success.amount} نقطة لـ {success.customer.name}
+              </Text>
+              <Text style={{ fontSize: 12, color: '#4ADE80', textAlign: 'right' }}>
+                رصيده الجديد: {success.total} نقطة
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Search */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10,
+          backgroundColor: C.white, borderRadius: 14, borderWidth: 1.5, borderColor: C.border,
+          paddingHorizontal: 14, height: 52 }}>
+          <Text style={{ fontSize: 18 }}>🔍</Text>
+          <TextInput value={search} onChangeText={handleSearch}
+            placeholder="ابحث بالاسم أو رقم الهاتف" placeholderTextColor={C.textMuted}
+            style={{ flex: 1, fontSize: 15, color: C.textPrimary, textAlign: 'right' }} />
+        </View>
+
+        {/* Selected customer preview */}
+        {selected && (
+          <View style={{ backgroundColor: C.primary, borderRadius: 16, padding: 16, gap: 12 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <TouchableOpacity onPress={() => setSelected(null)}
+                style={{ backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 8,
+                  paddingHorizontal: 10, paddingVertical: 5 }}>
+                <Text style={{ fontSize: 13, color: C.white }}>تغيير</Text>
+              </TouchableOpacity>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: C.white }}>{selected.name}</Text>
+                <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>{selected.phone}</Text>
+              </View>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 10,
+                padding: 10, alignItems: 'center' }}>
+                <Text style={{ fontSize: 18, fontWeight: '800', color: C.accent }}>{selected.stamps}</Text>
+                <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>طوابع</Text>
+              </View>
+              <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 10,
+                padding: 10, alignItems: 'center' }}>
+                <Text style={{ fontSize: 18, fontWeight: '800', color: C.accent }}>
+                  {customerPointsFromMerchant[selected.id] || 0}
+                </Text>
+                <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>نقاط حالية</Text>
+              </View>
+              <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 10,
+                padding: 10, alignItems: 'center' }}>
+                <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', textAlign: 'center' }}>
+                  {selected.lastVisit}
+                </Text>
+                <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>آخر زيارة</Text>
+              </View>
+            </View>
+
+            {/* Gift amount */}
+            <View style={{ gap: 8 }}>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: 'rgba(255,255,255,0.8)', textAlign: 'right' }}>
+                عدد النقاط المهداة
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {[10, 25, 50, 100].map(n => (
+                  <TouchableOpacity key={n} onPress={() => setAmount(String(n))}
+                    style={{ flex: 1, backgroundColor: amount === String(n) ? C.accent : 'rgba(255,255,255,0.15)',
+                      borderRadius: 10, padding: 10, alignItems: 'center' }}>
+                    <Text style={{ fontSize: 14, fontWeight: '700',
+                      color: amount === String(n) ? C.primary : C.white }}>{n}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <TextInput value={amount} onChangeText={setAmount}
+                placeholder="أو أدخل عدداً مخصصاً" placeholderTextColor="rgba(255,255,255,0.4)"
+                keyboardType="number-pad"
+                style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 12, padding: 14,
+                  fontSize: 16, color: C.white, textAlign: 'right', borderWidth: 1,
+                  borderColor: 'rgba(255,255,255,0.2)' }} />
+            </View>
+
+            <Btn label={loading ? '' : `إهداء ${amount || '...'} نقطة`}
+              onPress={handleGift} loading={loading}
+              disabled={!amount || parseInt(amount) <= 0}
+              style={{ backgroundColor: C.accent }}
+              textStyle={{ color: C.primary }} />
+          </View>
+        )}
+
+        {/* Customer list */}
+        {!selected && (
+          <View style={{ gap: 10 }}>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: C.textSecondary, textAlign: 'right' }}>
+              {customers.length} زبون
+            </Text>
+            {customers.map(c => (
+              <TouchableOpacity key={c.id} onPress={() => setSelected(c)} activeOpacity={0.85}
+                style={{ backgroundColor: C.white, borderRadius: 14, padding: 16,
+                  flexDirection: 'row', alignItems: 'center', gap: 12,
+                  borderWidth: 1, borderColor: C.border }}>
+                <View style={{ flex: 1, gap: 4 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={{ fontSize: 12, color: C.textMuted }}>{c.lastVisit}</Text>
+                    <Text style={{ fontSize: 15, fontWeight: '700', color: C.textPrimary }}>{c.name}</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <View style={{ backgroundColor: C.accentLight, borderRadius: 6,
+                        paddingHorizontal: 8, paddingVertical: 2 }}>
+                        <Text style={{ fontSize: 12, color: C.primary, fontWeight: '600' }}>
+                          {customerPointsFromMerchant[c.id] || 0} نقطة
+                        </Text>
+                      </View>
+                      <View style={{ backgroundColor: C.primarySurface, borderRadius: 6,
+                        paddingHorizontal: 8, paddingVertical: 2 }}>
+                        <Text style={{ fontSize: 12, color: C.primary, fontWeight: '600' }}>
+                          {c.stamps} طابع
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={{ fontSize: 13, color: C.textMuted }}>{c.phone}</Text>
+                  </View>
+                </View>
+                <Text style={{ fontSize: 20, color: C.textMuted }}>›</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -1787,6 +2013,7 @@ function MerchantTabBar({ active, navigate, onMenuPress }) {
     { label: 'لوحة التحكم', screen: 'Dashboard', icon: '📊' },
     { label: 'الكاشير', screen: 'CashierQueue', icon: '⚡' },
     { label: 'نقاط+', screen: 'AddPoints', icon: '💰' },
+    { label: 'إهداء', screen: 'GiftPoints', icon: '🎁' },
   ];
   return (
     <View style={{ flexDirection: 'row', backgroundColor: C.white,
@@ -1815,7 +2042,7 @@ function MerchantTabBar({ active, navigate, onMenuPress }) {
 
 // ─── APP ──────────────────────────────────────────────────────────────────────
 const CUSTOMER_SCREENS = ['Nearby', 'StampCard', 'PointsWallet', 'CustomerEntry', 'StampSuccess', 'RewardReady'];
-const MERCHANT_SCREENS = ['Dashboard', 'CashierQueue', 'AddPoints', 'QRPoster', 'CashierConfirm'];
+const MERCHANT_SCREENS = ['Dashboard', 'CashierQueue', 'AddPoints', 'GiftPoints', 'QRPoster', 'CashierConfirm'];
 const AUTH_SCREENS = ['PhoneLogin', 'OTP', 'RoleSelect'];
 
 export default function App() {
@@ -1859,6 +2086,7 @@ export default function App() {
     Nearby: <NearbyScreen navigate={navigate} params={params} />,
     PointsWallet: <PointsWalletScreen navigate={navigate} params={params} />,
     AddPoints: <AddPointsScreen navigate={navigate} params={params} />,
+    GiftPoints: <GiftPointsScreen navigate={navigate} params={params} />,
     StampCard: <StampCardScreen navigate={navigate} params={params} />,
     StampSuccess: <StampSuccessScreen navigate={navigate} params={params} />,
     RewardReady: <RewardReadyScreen navigate={navigate} params={params} />,
