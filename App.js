@@ -1250,7 +1250,7 @@ function NearbyScreen({ navigate }) {
                     : <Text style={{ fontSize: 15, fontWeight: '700', color: C.white }}>انضم الآن</Text>}
                 </TouchableOpacity>
               ) : (
-                <TouchableOpacity onPress={() => navigate('StampCard')}
+                <TouchableOpacity onPress={() => navigate('StampCard', { merchant: m })}
                   style={{ backgroundColor: C.primarySurface, borderRadius: 12, padding: 12, alignItems: 'center' }}>
                   <Text style={{ fontSize: 14, fontWeight: '600', color: C.primary }}>عرض بطاقتي</Text>
                 </TouchableOpacity>
