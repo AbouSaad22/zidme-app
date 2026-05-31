@@ -467,7 +467,7 @@ function OTPScreen({ navigate, params }) {
     try {
       setLoading(true); setError('');
       await apiVerifyOTP(otp);
-      navigate('RoleSelect');
+      navigate('NameSetup');
     } catch (e) { setError(e.message || 'خطأ'); setOtp(''); }
     finally { setLoading(false); }
   };
@@ -503,6 +503,60 @@ function OTPScreen({ navigate, params }) {
               </TouchableOpacity>}
         </View>
       </View>
+    </SafeAreaView>
+  );
+}
+
+// ─── SCREEN: NAME SETUP (after OTP) ─────────────────────────────────────────
+function NameSetupScreen({ navigate }) {
+  const [name, setName] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleContinue = async () => {
+    if (!name.trim()) return;
+    try {
+      setLoading(true);
+      await apiSaveProfile({ name: name.trim() });
+      navigate('RoleSelect');
+    } finally { setLoading(false); }
+  };
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: C.background }}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <View style={{ flex: 1, padding: 24, justifyContent: 'center', gap: 32 }}>
+
+          <View style={{ alignItems: 'center', gap: 12 }}>
+            <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: C.primarySurface,
+              alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: C.border }}>
+              <Text style={{ fontSize: 40 }}>👋</Text>
+            </View>
+            <Text style={{ fontSize: 24, fontWeight: '800', color: C.textPrimary, textAlign: 'center' }}>
+              أهلاً! ما اسمك؟
+            </Text>
+            <Text style={{ fontSize: 14, color: C.textSecondary, textAlign: 'center' }}>
+              سيظهر اسمك في بطاقاتك ومعاملاتك
+            </Text>
+          </View>
+
+          <View style={{ gap: 12 }}>
+            <TextInput value={name} onChangeText={setName}
+              placeholder="أدخل اسمك الكامل" placeholderTextColor={C.textMuted}
+              autoFocus maxLength={40}
+              style={{ borderWidth: 2, borderColor: name ? C.primary : C.border,
+                borderRadius: 16, padding: 18, fontSize: 20, color: C.textPrimary,
+                backgroundColor: C.white, textAlign: 'right',
+                shadowColor: C.primary, shadowOpacity: name ? 0.1 : 0, shadowRadius: 6, elevation: name ? 2 : 0 }} />
+            <Btn label="متابعة" onPress={handleContinue} loading={loading} disabled={!name.trim()} />
+          </View>
+
+          <TouchableOpacity onPress={() => navigate('RoleSelect')} style={{ alignItems: 'center' }}>
+            <Text style={{ fontSize: 14, color: C.textMuted, textDecorationLine: 'underline' }}>
+              تخطي الآن
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -2546,7 +2600,6 @@ function AddPointsScreen({ navigate }) {
 
 // ─── SCREEN: MY PROFILE ──────────────────────────────────────────────────────
 function ProfileScreen({ navigate }) {
-  const [profile, setProfile] = useState({ ...mockProfile });
   const [name, setName] = useState(mockProfile.name);
   const [age, setAge] = useState(mockProfile.age);
   const [gender, setGender] = useState(mockProfile.gender);
@@ -2555,14 +2608,7 @@ function ProfileScreen({ navigate }) {
   const [saving, setSaving] = useState(false);
   const [reward, setReward] = useState(null);
 
-  const completion = () => {
-    let filled = 0;
-    if (name) filled++;
-    if (age) filled++;
-    if (gender) filled++;
-    if (address) filled++;
-    return Math.round((filled / 4) * 100);
-  };
+  const pct = [name, age, gender, address].filter(Boolean).length * 25;
 
   const getLocationAuto = async () => {
     setLocating(true);
@@ -2575,140 +2621,100 @@ function ProfileScreen({ navigate }) {
     try {
       setSaving(true);
       const res = await apiSaveProfile({ name, age, gender, address });
-      setProfile(res.profile);
       if (res.pointsEarned > 0) {
-        setReward({ points: res.pointsEarned, fields: res.newFields });
-        setTimeout(() => setReward(null), 3500);
+        setReward(res.pointsEarned);
+        setTimeout(() => setReward(null), 3000);
       }
     } finally { setSaving(false); }
   };
 
-  const pct = completion();
-  const FIELDS = [
-    { key: 'name', done: !!mockProfile.completedFields.includes('name') },
-    { key: 'age', done: !!mockProfile.completedFields.includes('age') },
-    { key: 'gender', done: !!mockProfile.completedFields.includes('gender') },
-    { key: 'address', done: !!mockProfile.completedFields.includes('address') },
-  ];
+  const FieldLabel = ({ label, fieldKey }) => {
+    const done = mockProfile.completedFields.includes(fieldKey);
+    const pts = PROFILE_REWARDS[fieldKey]?.points;
+    return (
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+        <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+          {done
+            ? <View style={{ backgroundColor: '#D1FAE5', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 }}>
+                <Text style={{ fontSize: 11, color: '#16A34A', fontWeight: '700' }}>+{pts} ✓</Text>
+              </View>
+            : <View style={{ backgroundColor: C.accentLight, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 }}>
+                <Text style={{ fontSize: 11, color: C.primary, fontWeight: '700' }}>+{pts}</Text>
+              </View>
+          }
+        </View>
+        <Text style={{ fontSize: 13, fontWeight: '600', color: C.textSecondary }}>{label}</Text>
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: C.background }}>
-      {/* Reward banner */}
+      {/* Reward toast */}
       {reward && (
-        <Animated.View style={{ position: 'absolute', top: 60, left: 16, right: 16, zIndex: 99,
-          backgroundColor: C.primary, borderRadius: 16, padding: 16,
-          flexDirection: 'row', alignItems: 'center', gap: 12,
-          shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 12, elevation: 10 }}>
-          <Text style={{ fontSize: 32 }}>🎉</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 16, fontWeight: '800', color: C.accent }}>
-              +{reward.points} نقطة Zidme!
-            </Text>
-            <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)' }}>
-              شكراً على إكمال بياناتك
-            </Text>
-          </View>
-        </Animated.View>
+        <View style={{ position: 'absolute', top: 50, left: 20, right: 20, zIndex: 99,
+          backgroundColor: C.primary, borderRadius: 14, padding: 14,
+          flexDirection: 'row', alignItems: 'center', gap: 10,
+          shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 10, elevation: 10 }}>
+          <Text style={{ fontSize: 24 }}>🎉</Text>
+          <Text style={{ fontSize: 15, fontWeight: '800', color: C.accent }}>+{reward} نقطة Zidme!</Text>
+        </View>
       )}
 
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 40 }}
-        keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 40 }}
+        keyboardShouldPersistTaps="handled">
 
-        {/* Header */}
-        <View style={{ backgroundColor: C.primary, borderRadius: 20, padding: 20, gap: 16 }}>
-          {/* Avatar */}
-          <View style={{ alignItems: 'center', gap: 10 }}>
-            <View style={{ width: 80, height: 80, borderRadius: 40,
+        {/* Header card */}
+        <View style={{ backgroundColor: C.primary, borderRadius: 20, padding: 20, gap: 14 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+            <View style={{ width: 64, height: 64, borderRadius: 32,
               backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center',
-              borderWidth: 3, borderColor: C.accent }}>
-              <Text style={{ fontSize: 40 }}>{gender === 'female' ? '👩' : '👨'}</Text>
+              borderWidth: 2.5, borderColor: C.accent }}>
+              <Text style={{ fontSize: 32 }}>{gender === 'female' ? '👩' : '👨'}</Text>
             </View>
-            <Text style={{ fontSize: 18, fontWeight: '700', color: C.white }}>
-              {name || 'اسمك هنا'}
-            </Text>
-            <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>0555 123 456</Text>
-          </View>
-
-          {/* Points */}
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 12,
-              padding: 12, alignItems: 'center' }}>
-              <Text style={{ fontSize: 22, fontWeight: '900', color: C.accent }}>{myZidmePoints}</Text>
-              <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>نقاط Zidme</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 18, fontWeight: '800', color: C.white }}>
+                {name || 'اسمك هنا'}
+              </Text>
+              <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)' }}>0555 123 456</Text>
             </View>
-            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 12,
-              padding: 12, alignItems: 'center' }}>
-              <Text style={{ fontSize: 22, fontWeight: '900', color: C.accent }}>{mockProfile.completionPoints}</Text>
-              <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>نقاط البروفايل</Text>
+            <View style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 12,
+              padding: 10, alignItems: 'center' }}>
+              <Text style={{ fontSize: 20, fontWeight: '900', color: C.accent }}>{myZidmePoints}</Text>
+              <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>نقطة</Text>
             </View>
           </View>
-        </View>
 
-        {/* Completion progress */}
-        <View style={{ backgroundColor: C.white, borderRadius: 18, padding: 18, gap: 12,
-          shadowColor: C.primary, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text style={{ fontSize: 16, fontWeight: '700', color: C.primary }}>{pct}%</Text>
-            <Text style={{ fontSize: 15, fontWeight: '700', color: C.textPrimary }}>اكتمال البروفايل</Text>
-          </View>
-          <View style={{ height: 8, backgroundColor: C.border, borderRadius: 99, overflow: 'hidden' }}>
-            <View style={{ width: `${pct}%`, height: '100%', backgroundColor: pct === 100 ? '#22C55E' : C.accent, borderRadius: 99 }} />
-          </View>
-
-          {/* Rewards per field */}
-          <View style={{ gap: 8 }}>
-            {Object.entries(PROFILE_REWARDS).map(([field, info]) => {
-              const done = mockProfile.completedFields.includes(field);
-              return (
-                <View key={field} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <View style={{ width: 24, height: 24, borderRadius: 12,
-                    backgroundColor: done ? '#22C55E' : C.border,
-                    alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={{ fontSize: 12, color: done ? C.white : C.textMuted }}>
-                      {done ? '✓' : '○'}
-                    </Text>
-                  </View>
-                  <Text style={{ flex: 1, fontSize: 14, color: done ? C.textMuted : C.textPrimary,
-                    textDecorationLine: done ? 'line-through' : 'none', textAlign: 'right' }}>
-                    {info.label}
-                  </Text>
-                  <View style={{ backgroundColor: done ? C.borderLight : C.accentLight,
-                    borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
-                    <Text style={{ fontSize: 12, fontWeight: '700',
-                      color: done ? C.textMuted : C.primary }}>+{info.points}</Text>
-                  </View>
-                </View>
-              );
-            })}
+          {/* Progress bar */}
+          <View style={{ gap: 6 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>اكتمال البروفايل</Text>
+              <Text style={{ fontSize: 12, color: C.accent, fontWeight: '700' }}>{pct}%</Text>
+            </View>
+            <View style={{ height: 6, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 99 }}>
+              <View style={{ width: `${pct}%`, height: '100%',
+                backgroundColor: pct === 100 ? '#22C55E' : C.accent, borderRadius: 99 }} />
+            </View>
           </View>
         </View>
 
         {/* Form */}
         <View style={{ backgroundColor: C.white, borderRadius: 18, padding: 18, gap: 16,
           shadowColor: C.primary, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 }}>
-          <Text style={{ fontSize: 16, fontWeight: '700', color: C.textPrimary, textAlign: 'right' }}>
-            بياناتك الشخصية
-          </Text>
 
           {/* Name */}
-          <View style={{ gap: 6 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <Text style={{ fontSize: 12, color: C.accent }}>+{PROFILE_REWARDS.name.points} نقطة</Text>
-              <Text style={{ fontSize: 13, fontWeight: '600', color: C.textSecondary }}>الاسم (اختياري)</Text>
-            </View>
+          <View>
+            <FieldLabel label="الاسم" fieldKey="name" />
             <TextInput value={name} onChangeText={setName}
-              placeholder="أدخل اسمك" placeholderTextColor={C.textMuted}
+              placeholder="أدخل اسمك" placeholderTextColor={C.textMuted} maxLength={40}
               style={{ borderWidth: 1.5, borderColor: name ? C.primary : C.border,
                 borderRadius: 12, padding: 14, fontSize: 16, color: C.textPrimary,
-                backgroundColor: C.background, textAlign: 'right' }} maxLength={40} />
+                backgroundColor: C.background, textAlign: 'right' }} />
           </View>
 
           {/* Age */}
-          <View style={{ gap: 6 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <Text style={{ fontSize: 12, color: C.accent }}>+{PROFILE_REWARDS.age.points} نقطة</Text>
-              <Text style={{ fontSize: 13, fontWeight: '600', color: C.textSecondary }}>العمر (اختياري)</Text>
-            </View>
+          <View>
+            <FieldLabel label="العمر (اختياري)" fieldKey="age" />
             <TextInput value={age} onChangeText={setAge}
               placeholder="مثال: 28" placeholderTextColor={C.textMuted}
               keyboardType="number-pad" maxLength={3}
@@ -2718,22 +2724,16 @@ function ProfileScreen({ navigate }) {
           </View>
 
           {/* Gender */}
-          <View style={{ gap: 8 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <Text style={{ fontSize: 12, color: C.accent }}>+{PROFILE_REWARDS.gender.points} نقطة</Text>
-              <Text style={{ fontSize: 13, fontWeight: '600', color: C.textSecondary }}>الجنس (اختياري)</Text>
-            </View>
+          <View>
+            <FieldLabel label="الجنس (اختياري)" fieldKey="gender" />
             <View style={{ flexDirection: 'row', gap: 10 }}>
-              {[
-                { key: 'male', label: 'ذكر', icon: '👨' },
-                { key: 'female', label: 'أنثى', icon: '👩' },
-              ].map(g => (
+              {[{ key: 'male', label: 'ذكر', icon: '👨' }, { key: 'female', label: 'أنثى', icon: '👩' }].map(g => (
                 <TouchableOpacity key={g.key} onPress={() => setGender(g.key)}
                   style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-                    gap: 8, padding: 14, borderRadius: 14,
+                    gap: 8, padding: 14, borderRadius: 12,
                     backgroundColor: gender === g.key ? C.primarySurface : C.background,
                     borderWidth: 2, borderColor: gender === g.key ? C.primary : C.border }}>
-                  <Text style={{ fontSize: 24 }}>{g.icon}</Text>
+                  <Text style={{ fontSize: 22 }}>{g.icon}</Text>
                   <Text style={{ fontSize: 15, fontWeight: '600',
                     color: gender === g.key ? C.primary : C.textSecondary }}>{g.label}</Text>
                 </TouchableOpacity>
@@ -2742,40 +2742,34 @@ function ProfileScreen({ navigate }) {
           </View>
 
           {/* Address */}
-          <View style={{ gap: 8 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <Text style={{ fontSize: 12, color: C.accent }}>+{PROFILE_REWARDS.address.points} نقطة</Text>
-              <Text style={{ fontSize: 13, fontWeight: '600', color: C.textSecondary }}>العنوان (اختياري)</Text>
-            </View>
+          <View>
+            <FieldLabel label="العنوان (اختياري)" fieldKey="address" />
             <TextInput value={address} onChangeText={setAddress}
-              placeholder="حيك أو مدينتك" placeholderTextColor={C.textMuted} multiline numberOfLines={2}
+              placeholder="حيك أو مدينتك" placeholderTextColor={C.textMuted} multiline
               style={{ borderWidth: 1.5, borderColor: address ? C.primary : C.border,
                 borderRadius: 12, padding: 14, fontSize: 15, color: C.textPrimary,
-                backgroundColor: C.background, textAlign: 'right', minHeight: 70 }} />
+                backgroundColor: C.background, textAlign: 'right', minHeight: 60 }} />
             <TouchableOpacity onPress={getLocationAuto} disabled={locating}
               style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-                gap: 8, backgroundColor: C.primarySurface, borderRadius: 12, padding: 12,
-                borderWidth: 1, borderColor: C.border, opacity: locating ? 0.6 : 1 }}>
-              {locating
-                ? <ActivityIndicator size="small" color={C.primary} />
+                gap: 8, marginTop: 8, backgroundColor: C.primarySurface, borderRadius: 10,
+                padding: 10, opacity: locating ? 0.6 : 1 }}>
+              {locating ? <ActivityIndicator size="small" color={C.primary} />
                 : <Text style={{ fontSize: 16 }}>📍</Text>}
-              <Text style={{ fontSize: 14, fontWeight: '600', color: C.primary }}>
-                {locating ? 'جارٍ تحديد الموقع...' : 'تحديد الموقع تلقائياً'}
+              <Text style={{ fontSize: 13, fontWeight: '600', color: C.primary }}>
+                {locating ? 'جارٍ التحديد...' : 'تحديد تلقائي'}
               </Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Save button */}
-        <Btn label={saving ? '' : 'حفظ البيانات'} onPress={handleSave} loading={saving}
+        <Btn label="حفظ" onPress={handleSave} loading={saving}
           disabled={!name && !age && !gender && !address} />
 
         {pct === 100 && (
-          <View style={{ backgroundColor: '#F0FDF4', borderRadius: 16, padding: 16,
-            alignItems: 'center', gap: 8, borderWidth: 1.5, borderColor: '#86EFAC' }}>
-            <Text style={{ fontSize: 28 }}>🏆</Text>
-            <Text style={{ fontSize: 16, fontWeight: '700', color: '#16A34A' }}>بروفايل مكتمل 100%</Text>
-            <Text style={{ fontSize: 13, color: '#15803D' }}>حصلت على كل نقاط البروفايل!</Text>
+          <View style={{ backgroundColor: '#F0FDF4', borderRadius: 14, padding: 14,
+            flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: '#86EFAC' }}>
+            <Text style={{ fontSize: 24 }}>🏆</Text>
+            <Text style={{ fontSize: 15, fontWeight: '700', color: '#16A34A' }}>بروفايل مكتمل 100%</Text>
           </View>
         )}
       </ScrollView>
@@ -2785,14 +2779,22 @@ function ProfileScreen({ navigate }) {
 
 // ─── SIDE DRAWER (inDrive style) ─────────────────────────────────────────────
 function SideDrawer({ visible, role, onClose, onSwitchRole, onLogout, navigate }) {
-  const slideAnim = useRef(new Animated.Value(-320)).current;
+  const slideAnim = useRef(new Animated.Value(-340)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.timing(slideAnim, {
-      toValue: visible ? 0 : -320,
-      duration: 280,
-      useNativeDriver: true,
-    }).start();
+    Animated.parallel([
+      Animated.timing(slideAnim, {
+        toValue: visible ? 0 : -340,
+        duration: 260,
+        useNativeDriver: true,
+      }),
+      Animated.timing(fadeAnim, {
+        toValue: visible ? 1 : 0,
+        duration: 260,
+        useNativeDriver: true,
+      }),
+    ]).start();
   }, [visible]);
 
   const CUSTOMER_MENU = [
@@ -2822,11 +2824,17 @@ function SideDrawer({ visible, role, onClose, onSwitchRole, onLogout, navigate }
         {/* Drawer */}
         <Animated.View style={{ width: 300, backgroundColor: C.white, height: '100%',
           transform: [{ translateX: slideAnim }],
-          shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 20, elevation: 20 }}>
+          shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 24, elevation: 24 }}>
 
           {/* Profile header */}
-          <View style={{ backgroundColor: C.primary, paddingTop: 50, paddingBottom: 24,
+          <View style={{ backgroundColor: C.primary, paddingTop: 44, paddingBottom: 20,
             paddingHorizontal: 20, gap: 12 }}>
+            <TouchableOpacity onPress={onClose} style={{ alignSelf: 'flex-end', marginBottom: 4 }}>
+              <View style={{ backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 8,
+                width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontSize: 16, color: C.white, fontWeight: '700' }}>✕</Text>
+              </View>
+            </TouchableOpacity>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
               <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(255,255,255,0.2)',
                 alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: C.accent }}>
@@ -2900,8 +2908,10 @@ function SideDrawer({ visible, role, onClose, onSwitchRole, onLogout, navigate }
         </Animated.View>
 
         {/* Backdrop */}
-        <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}
-          onPress={onClose} activeOpacity={1} />
+        <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+          <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}
+            onPress={onClose} activeOpacity={1} />
+        </Animated.View>
       </View>
     </Modal>
   );
@@ -3030,6 +3040,7 @@ export default function App() {
 
   const screens = {
     PhoneLogin: <PhoneLoginScreen navigate={navigate} params={params} />,
+    NameSetup: <NameSetupScreen navigate={navigate} params={params} />,
     OTP: <OTPScreen navigate={navigate} params={params} />,
     RoleSelect: <RoleSelectScreen navigate={navigate} params={params} />,
     MerchantSetup: <MerchantSetupScreen navigate={navigate} params={params} />,
