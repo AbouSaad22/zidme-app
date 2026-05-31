@@ -157,10 +157,10 @@ async function apiGetProfile() {
 
 // QR Token registry - maps token to merchant
 const QR_REGISTRY = {
-  'QR-CAFE-001': { merchantId: 'm1', name: 'كافيه الأصيل', category: 'CAFE', required: 6, rewardLabel: 'قهوة مجانية', pointsPerStamp: 50 },
-  'QR-PIZZA-001': { merchantId: 'm2', name: 'بيتزا زيدني', category: 'PIZZERIA', required: 8, rewardLabel: 'بيتزا مجانية', pointsPerStamp: 80 },
-  'QR-FF-001': { merchantId: 'm3', name: 'فاست فود برو', category: 'FAST_FOOD', required: 5, rewardLabel: 'وجبة مجانية', pointsPerStamp: 40 },
-  'QR-CAFE-002': { merchantId: 'm4', name: 'مقهى النجوم', category: 'CAFE', required: 6, rewardLabel: 'مشروب مجاني', pointsPerStamp: 50 },
+  'QR-CAFE-001': { merchantId: 'm1', name: 'كافيه الأصيل', category: 'CAFE', required: 6, rewardLabel: 'قهوة مجانية', strategy: 'PER_VISIT', pointsPerStamp: 50 },
+  'QR-PIZZA-001': { merchantId: 'm2', name: 'بيتزا زيدني', category: 'PIZZERIA', required: 8, rewardLabel: 'بيتزا مجانية', strategy: 'MIN_PURCHASE', pointsPerStamp: 80 },
+  'QR-FF-001': { merchantId: 'm3', name: 'فاست فود برو', category: 'FAST_FOOD', required: 5, rewardLabel: 'وجبة مجانية', strategy: 'MIN_PURCHASE', pointsPerStamp: 40 },
+  'QR-CAFE-002': { merchantId: 'm4', name: 'مقهى النجوم', category: 'CAFE', required: 6, rewardLabel: 'مشروب مجاني', strategy: 'PER_VISIT', pointsPerStamp: 50 },
 };
 
 // Customer QR tokens (for cashier to scan)
@@ -1523,7 +1523,7 @@ function QRScanResult({ result, adding, onAddStamp, onAddPoints }) {
   const merchant = result.merchant || {};
   const strategy = merchant.strategy || 'PER_VISIT';
   const pointsPerStamp = merchant.pointsPerStamp || 50;
-  const isMinPurchase = strategy === 'MIN_PURCHASE';
+  const isMinPurchase = result.type === 'merchant' && strategy === 'MIN_PURCHASE';
 
   // Calculate stamps from amount
   const amount = parseInt(purchaseAmount) || 0;
@@ -2806,7 +2806,7 @@ function SideDrawer({ visible, role, onClose, onSwitchRole, onLogout, navigate }
   const MERCHANT_MENU = [
     { icon: '📊', label: 'لوحة التحكم', screen: 'Dashboard' },
     { icon: '⚡', label: 'شاشة الكاشير', screen: 'CashierQueue' },
-    { icon: '📷', label: 'مسح QR زبون', screen: 'QRScanner', params: { mode: 'cashier' } },
+    { icon: '📷', label: 'مسح QR زبون', screen: 'CashierQRScanner', params: { mode: 'cashier' } },
     { icon: '💰', label: 'إضافة نقاط', screen: 'AddPoints' },
     { icon: '🎁', label: 'إهداء نقاط', screen: 'GiftPoints' },
     { icon: '📋', label: 'عرض QR المحل', screen: 'QRPoster' },
@@ -2972,7 +2972,7 @@ function MerchantTabBar({ active, navigate, onMenuPress }) {
       </TouchableOpacity>
 
       {/* QR — Center elevated */}
-      <TouchableOpacity onPress={() => navigate('QRScanner', { mode: 'cashier' })}
+      <TouchableOpacity onPress={() => navigate('CashierQRScanner', { mode: 'cashier' })}
         style={{ flex: 1, alignItems: 'center', marginBottom: 8 }} activeOpacity={0.85}>
         <View style={{ width: 58, height: 58, borderRadius: 29, backgroundColor: C.accent,
           alignItems: 'center', justifyContent: 'center',
@@ -2997,7 +2997,7 @@ function MerchantTabBar({ active, navigate, onMenuPress }) {
 
 // ─── APP ──────────────────────────────────────────────────────────────────────
 const CUSTOMER_SCREENS = ['Nearby', 'StampCard', 'PointsWallet', 'CustomerEntry', 'StampSuccess', 'RewardReady', 'QRScanner', 'Profile'];
-const MERCHANT_SCREENS = ['Dashboard', 'CashierQueue', 'AddPoints', 'GiftPoints', 'QRPoster', 'CashierConfirm', 'QRScanner'];
+const MERCHANT_SCREENS = ['Dashboard', 'CashierQueue', 'AddPoints', 'GiftPoints', 'QRPoster', 'CashierConfirm', 'CashierQRScanner'];
 const AUTH_SCREENS = ['PhoneLogin', 'OTP', 'RoleSelect'];
 
 export default function App() {
@@ -3009,7 +3009,7 @@ export default function App() {
   const navigate = (name, p = {}) => {
     if (name === 'RoleSelect') setRole(null);
     if (CUSTOMER_SCREENS.includes(name)) setRole('customer');
-    if (MERCHANT_SCREENS.includes(name) || name === 'MerchantSetup') setRole('merchant');
+    if (MERCHANT_SCREENS.includes(name) || name === 'MerchantSetup' || name === 'CashierQRScanner') setRole('merchant');
     setScreen(name);
     setParams(p);
   };
@@ -3043,6 +3043,7 @@ export default function App() {
     AddPoints: <AddPointsScreen navigate={navigate} params={params} />,
     GiftPoints: <GiftPointsScreen navigate={navigate} params={params} />,
     QRScanner: <QRScannerScreen navigate={navigate} params={params} />,
+    CashierQRScanner: <QRScannerScreen navigate={navigate} params={{...params, mode: 'cashier'}} />,
     Profile: <ProfileScreen navigate={navigate} params={params} />,
     StampCard: <StampCardScreen navigate={navigate} params={params} />,
     StampSuccess: <StampSuccessScreen navigate={navigate} params={params} />,
