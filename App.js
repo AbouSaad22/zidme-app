@@ -6,7 +6,7 @@ import {
 } from 'react-native';
 
 // ─── THEME ───────────────────────────────────────────────────────────────────
-const C = {
+const LIGHT = {
   primary: '#0D3D2E',
   primaryLight: '#1A5C44',
   primarySurface: '#E8F4EF',
@@ -26,6 +26,36 @@ const C = {
   overlay: 'rgba(13,61,46,0.5)',
   overlayLight: 'rgba(13,61,46,0.08)',
 };
+
+const DARK = {
+  primary: '#1A7A5E',
+  primaryLight: '#23997A',
+  primarySurface: '#15302A',
+  accent: '#F5A623',
+  accentLight: '#7A5A20',
+  stampFilled: '#F5A623',
+  stampEmpty: '#2A3D36',
+  error: '#F87171',
+  white: '#1E1E1E',
+  background: '#121212',
+  surface: '#1E1E1E',
+  border: '#2D2D2D',
+  borderLight: '#252525',
+  textPrimary: '#F5F5F5',
+  textSecondary: '#A0C4B5',
+  textMuted: '#6B8579',
+  overlay: 'rgba(0,0,0,0.6)',
+  overlayLight: 'rgba(255,255,255,0.06)',
+};
+
+// Mutable theme object - all screens read from this. Toggling reassigns its keys.
+const C = { ...LIGHT };
+let currentMode = 'light';
+function applyTheme(mode) {
+  const src = mode === 'dark' ? DARK : LIGHT;
+  Object.keys(src).forEach(k => { C[k] = src[k]; });
+  currentMode = mode;
+}
 
 // ─── MOCK DATA ────────────────────────────────────────────────────────────────
 const CATEGORY_ICONS = { CAFE: '☕', PIZZERIA: '🍕', FAST_FOOD: '🍔' };
@@ -1292,6 +1322,19 @@ function StampCardScreen({ navigate, params }) {
     <SafeAreaView style={{ flex: 1, backgroundColor: C.background }}>
       <LoadingModal visible={waiting} message="في انتظار تأكيد الكاشير..." />
       <ScrollView contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 40 }}>
+
+        {/* Wallet segment toggle */}
+        <View style={{ flexDirection: 'row', backgroundColor: C.borderLight, borderRadius: 14, padding: 4 }}>
+          <View style={{ flex: 1, backgroundColor: C.white, borderRadius: 10, paddingVertical: 10,
+            alignItems: 'center', shadowColor: C.primary, shadowOpacity: 0.08, shadowRadius: 4, elevation: 2 }}>
+            <Text style={{ fontSize: 14, fontWeight: '700', color: C.primary }}>🏷️ طوابعي</Text>
+          </View>
+          <TouchableOpacity onPress={() => navigate('PointsWallet')}
+            style={{ flex: 1, borderRadius: 10, paddingVertical: 10, alignItems: 'center' }}>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: C.textMuted }}>⭐ نقاطي</Text>
+          </TouchableOpacity>
+        </View>
+
         <View style={{ backgroundColor: C.primary, borderRadius: 20, padding: 20, alignItems: 'center', gap: 8 }}>
           <Text style={{ fontSize: 32 }}>{CATEGORY_ICONS[merchant.category]}</Text>
           <Text style={{ fontSize: 22, fontWeight: '700', color: C.white }}>{merchant.name}</Text>
@@ -2311,6 +2354,18 @@ function PointsWalletScreen({ navigate }) {
     <SafeAreaView style={{ flex: 1, backgroundColor: C.background }}>
       <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
 
+        {/* Wallet segment toggle */}
+        <View style={{ flexDirection: 'row', backgroundColor: C.borderLight, borderRadius: 14, padding: 4 }}>
+          <TouchableOpacity onPress={() => navigate('StampCard')}
+            style={{ flex: 1, borderRadius: 10, paddingVertical: 10, alignItems: 'center' }}>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: C.textMuted }}>🏷️ طوابعي</Text>
+          </TouchableOpacity>
+          <View style={{ flex: 1, backgroundColor: C.white, borderRadius: 10, paddingVertical: 10,
+            alignItems: 'center', shadowColor: C.primary, shadowOpacity: 0.08, shadowRadius: 4, elevation: 2 }}>
+            <Text style={{ fontSize: 14, fontWeight: '700', color: C.primary }}>⭐ نقاطي</Text>
+          </View>
+        </View>
+
         {/* Zidme Points Card */}
         <View style={{ backgroundColor: C.primary, borderRadius: 24, padding: 24, gap: 16 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -3151,7 +3206,7 @@ const DRAWER_TEXT = '#FFFFFF';
 const DRAWER_MUTED = 'rgba(255,255,255,0.45)';
 const DRAWER_BORDER = 'rgba(255,255,255,0.08)';
 
-function SideDrawer({ visible, role, onClose, onSwitchRole, onLogout, navigate }) {
+function SideDrawer({ visible, role, themeMode, onToggleTheme, onClose, onSwitchRole, onLogout, navigate }) {
   const slideAnim = useRef(new Animated.Value(-340)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -3257,6 +3312,28 @@ function SideDrawer({ visible, role, onClose, onSwitchRole, onLogout, navigate }
             ))}
           </ScrollView>
 
+          {/* Dark/Light toggle - inDrive style row */}
+          <View style={{ paddingHorizontal: 20, paddingVertical: 14,
+            borderTopWidth: 1, borderTopColor: DRAWER_BORDER,
+            flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <TouchableOpacity onPress={onToggleTheme} activeOpacity={0.8}
+              style={{ width: 56, height: 30, borderRadius: 15,
+                backgroundColor: themeMode === 'dark' ? '#F5A623' : '#3A3A3A',
+                justifyContent: 'center', padding: 3 }}>
+              <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#FFF',
+                alignItems: 'center', justifyContent: 'center',
+                alignSelf: themeMode === 'dark' ? 'flex-start' : 'flex-end' }}>
+                <Text style={{ fontSize: 13 }}>{themeMode === 'dark' ? '🌙' : '☀️'}</Text>
+              </View>
+            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <Text style={{ fontSize: 15, color: DRAWER_TEXT, fontWeight: '600' }}>
+                {themeMode === 'dark' ? 'الوضع الليلي' : 'الوضع النهاري'}
+              </Text>
+              <Text style={{ fontSize: 18 }}>{themeMode === 'dark' ? '🌙' : '☀️'}</Text>
+            </View>
+          </View>
+
           {/* Switch mode button - inDrive "Driver mode" yellow button */}
           <View style={{ padding: 16, paddingBottom: 32, gap: 10,
             borderTopWidth: 1, borderTopColor: DRAWER_BORDER }}>
@@ -3311,7 +3388,6 @@ function CustomerTabBar({ active, navigate, onMenuPress }) {
       borderTopWidth: 1, borderTopColor: C.border,
       paddingBottom: 22, paddingTop: 2, alignItems: 'flex-end' }}>
 
-      <TabItem icon="🎫" label="رمزي" screen="MyQR" />
       <TabItem icon="📍" label="محلات" screen="Nearby" />
 
       {/* Center elevated scan button */}
@@ -3326,8 +3402,7 @@ function CustomerTabBar({ active, navigate, onMenuPress }) {
         <Text style={{ fontSize: 10.5, color: C.primary, fontWeight: '800', marginTop: 3 }}>مسح</Text>
       </TouchableOpacity>
 
-      <TabItem icon="🏷️" label="طوابعي" screen="StampCard" />
-      <TabItem icon="⭐" label="نقاطي" screen="PointsWallet" />
+      <TabItem icon="👛" label="محفظتي" screen="StampCard" />
     </View>
   );
 }
@@ -3382,6 +3457,13 @@ export default function App() {
   const [params, setParams] = useState({});
   const [role, setRole] = useState(null);
   const [showExitModal, setShowExitModal] = useState(false);
+  const [themeMode, setThemeMode] = useState('light');
+
+  const toggleTheme = () => {
+    const next = themeMode === 'light' ? 'dark' : 'light';
+    applyTheme(next);
+    setThemeMode(next);
+  };
 
   const navigate = (name, p = {}) => {
     if (name === 'RoleSelect') setRole(null);
@@ -3484,6 +3566,8 @@ export default function App() {
       <SideDrawer
         visible={showExitModal}
         role={role}
+        themeMode={themeMode}
+        onToggleTheme={toggleTheme}
         onClose={() => setShowExitModal(false)}
         onSwitchRole={handleSwitchRole}
         onLogout={handleLogout}
