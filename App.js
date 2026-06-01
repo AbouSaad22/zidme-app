@@ -1527,7 +1527,7 @@ function MinPurchaseFlow({ merchant, adding, onSent }) {
 
         <TextInput value={amount} onChangeText={setAmount}
           placeholder="أو أدخل مبلغاً مخصصاً" placeholderTextColor={C.textMuted}
-          keyboardType="number-pad" autoFocus
+          keyboardType="number-pad"
           style={{ borderWidth: 2, borderColor: amt >= 100 ? C.primary : C.border,
             borderRadius: 14, padding: 16, fontSize: 22, color: C.textPrimary,
             textAlign: 'center', fontWeight: '700', backgroundColor: C.background }} />
@@ -1744,6 +1744,7 @@ function QRScannerScreen({ navigate, params }) {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#0D0D0D' }}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>
       {/* Header */}
       <View style={{ padding: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <TouchableOpacity onPress={() => navigate(mode === 'customer' ? 'Nearby' : 'CashierQueue')}
@@ -1831,6 +1832,7 @@ function QRScannerScreen({ navigate, params }) {
         </View>
       )}
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
