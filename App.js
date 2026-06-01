@@ -575,7 +575,7 @@ function RoleSelectScreen({ navigate }) {
         </View>
 
         {/* Customer Card */}
-        <TouchableOpacity onPress={() => navigate('CustomerEntry')} activeOpacity={0.85}
+        <TouchableOpacity onPress={() => navigate('MyQR')} activeOpacity={0.85}
           style={{ backgroundColor: C.white, borderRadius: 20, padding: 24, gap: 12,
             borderWidth: 2, borderColor: C.border,
             shadowColor: C.primary, shadowOpacity: 0.08, shadowRadius: 8, elevation: 3 }}>
@@ -1650,8 +1650,53 @@ function QRScanResult({ result, adding, onAddStamp, onAddPoints }) {
 }
 
 // ─── SCREEN: QR SCANNER ──────────────────────────────────────────────────────
+// ─── COMPONENT: FAKE QR VISUAL ───────────────────────────────────────────────
+function QRVisual({ size = 220 }) {
+  // Deterministic pseudo-random pattern for a realistic QR look
+  const cells = 21;
+  const cellSize = size / cells;
+  const pattern = [];
+  let seed = 7;
+  const rand = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
+  for (let r = 0; r < cells; r++) {
+    for (let c = 0; c < cells; c++) {
+      pattern.push(rand() > 0.5);
+    }
+  }
+  // Finder pattern positions (3 corners)
+  const isFinder = (r, c) => (
+    (r < 7 && c < 7) || (r < 7 && c >= cells - 7) || (r >= cells - 7 && c < 7)
+  );
+  return (
+    <View style={{ width: size, height: size, backgroundColor: C.white,
+      flexDirection: 'row', flexWrap: 'wrap' }}>
+      {pattern.map((on, i) => {
+        const r = Math.floor(i / cells), c = i % cells;
+        if (isFinder(r, c)) {
+          // Draw finder block borders
+          const inFinderBorder =
+            (r === 0 || r === 6 || c === 0 || c === 6) ||
+            (r >= 2 && r <= 4 && c >= 2 && c <= 4);
+          const adjR = r >= cells - 7 ? r - (cells - 7) : r;
+          const adjC = c >= cells - 7 ? c - (cells - 7) : c;
+          const localR = r < 7 ? r : adjR;
+          const localC = c < 7 ? c : adjC;
+          const border = (localR === 0 || localR === 6 || localC === 0 || localC === 6);
+          const center = (localR >= 2 && localR <= 4 && localC >= 2 && localC <= 4);
+          return <View key={i} style={{ width: cellSize, height: cellSize,
+            backgroundColor: (border || center) ? '#0D0D0D' : C.white }} />;
+        }
+        return <View key={i} style={{ width: cellSize, height: cellSize,
+          backgroundColor: on ? '#0D0D0D' : C.white }} />;
+      })}
+    </View>
+  );
+}
+
+// ─── SCREEN: QR (Fidly-style toggle: show / scan) ────────────────────────────
 function QRScannerScreen({ navigate, params }) {
   const mode = params?.mode || 'customer'; // 'customer' | 'cashier'
+  const [viewMode, setViewMode] = useState('show'); // 'show' | 'scan' (customer only)
   const [scanning, setScanning] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
@@ -1833,6 +1878,129 @@ function QRScannerScreen({ navigate, params }) {
       )}
       </ScrollView>
       </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}
+
+// ─── SCREEN: MY QR (Fidly-style customer identity) ───────────────────────────
+function MyQRScreen({ navigate }) {
+  const [mode, setMode] = useState('show'); // 'show' = my QR | 'scan' = scan merchant
+  const displayName = mockProfile.name || 'زبون زيدني';
+  const myToken = 'CUS-ABD-001';
+
+  // Generate a simple QR-like pattern (visual placeholder)
+  const QRPattern = () => {
+    const size = 21;
+    const cells = [];
+    // Deterministic pattern from token
+    let seed = 0;
+    for (let i = 0; i < myToken.length; i++) seed += myToken.charCodeAt(i);
+    const rand = (n) => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed % n; };
+
+    for (let r = 0; r < size; r++) {
+      const row = [];
+      for (let c = 0; c < size; c++) {
+        // Position markers (3 corners)
+        const inMarker = (rr, cc) =>
+          (rr < 7 && cc < 7) || (rr < 7 && cc >= size - 7) || (rr >= size - 7 && cc < 7);
+        if (inMarker(r, c)) {
+          const localR = r < 7 ? r : r - (size - 7);
+          const localC = c < 7 ? c : (c >= size - 7 ? c - (size - 7) : c);
+          const isBorder = localR === 0 || localR === 6 || localC === 0 || localC === 6;
+          const isCenter = localR >= 2 && localR <= 4 && localC >= 2 && localC <= 4;
+          row.push(isBorder || isCenter);
+        } else {
+          row.push(rand(100) > 50);
+        }
+      }
+      cells.push(row);
+    }
+
+    return (
+      <View style={{ backgroundColor: C.white }}>
+        {cells.map((row, r) => (
+          <View key={r} style={{ flexDirection: 'row' }}>
+            {row.map((on, c) => (
+              <View key={c} style={{ width: 11, height: 11,
+                backgroundColor: on ? '#0D1F1A' : C.white }} />
+            ))}
+          </View>
+        ))}
+      </View>
+    );
+  };
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: C.primary }}>
+      {/* Header */}
+      <View style={{ paddingTop: 16, paddingBottom: 12, paddingHorizontal: 20,
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <View style={{ width: 40 }} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text style={{ fontSize: 24, fontWeight: '900', color: C.white }}>Zidme</Text>
+          <Text style={{ fontSize: 18 }}>⭐</Text>
+        </View>
+        <View style={{ width: 40 }} />
+      </View>
+
+      {/* White rounded sheet */}
+      <View style={{ flex: 1, backgroundColor: C.background,
+        borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingTop: 24 }}>
+
+        {/* Toggle: Show QR / Scan */}
+        <View style={{ alignItems: 'center', marginBottom: 24 }}>
+          <View style={{ flexDirection: 'row', backgroundColor: C.white, borderRadius: 99,
+            padding: 5, gap: 4, shadowColor: C.primary, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 }}>
+            <TouchableOpacity onPress={() => setMode('show')}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 6,
+                paddingHorizontal: 20, paddingVertical: 10, borderRadius: 99,
+                backgroundColor: mode === 'show' ? C.primary : 'transparent' }}>
+              <Text style={{ fontSize: 16 }}>🎫</Text>
+              <Text style={{ fontSize: 14, fontWeight: '700',
+                color: mode === 'show' ? C.white : C.textMuted }}>رمزي</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => { setMode('scan'); navigate('QRScanner', { mode: 'customer' }); }}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 6,
+                paddingHorizontal: 20, paddingVertical: 10, borderRadius: 99,
+                backgroundColor: mode === 'scan' ? C.primary : 'transparent' }}>
+              <Text style={{ fontSize: 16 }}>📷</Text>
+              <Text style={{ fontSize: 14, fontWeight: '700',
+                color: mode === 'scan' ? C.white : C.textMuted }}>مسح</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <ScrollView contentContainerStyle={{ alignItems: 'center', paddingHorizontal: 24, paddingBottom: 120 }}>
+          {/* Customer name */}
+          <Text style={{ fontSize: 20, fontWeight: '800', color: C.textPrimary, marginBottom: 4 }}>
+            {displayName}
+          </Text>
+          <Text style={{ fontSize: 13, color: C.textMuted, marginBottom: 20 }}>
+            أظهر هذا الرمز للكاشير ليمسحه
+          </Text>
+
+          {/* QR Card */}
+          <View style={{ backgroundColor: C.white, borderRadius: 24, padding: 20,
+            borderWidth: 3, borderColor: C.primary,
+            shadowColor: C.primary, shadowOpacity: 0.15, shadowRadius: 16, elevation: 6 }}>
+            <QRPattern />
+          </View>
+
+          {/* Points summary below QR */}
+          <View style={{ flexDirection: 'row', gap: 12, marginTop: 24, width: '100%' }}>
+            <View style={{ flex: 1, backgroundColor: C.white, borderRadius: 16, padding: 16,
+              alignItems: 'center', shadowColor: C.primary, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }}>
+              <Text style={{ fontSize: 24, fontWeight: '900', color: C.accent }}>{myZidmePoints}</Text>
+              <Text style={{ fontSize: 12, color: C.textMuted }}>نقطة Zidme</Text>
+            </View>
+            <View style={{ flex: 1, backgroundColor: C.white, borderRadius: 16, padding: 16,
+              alignItems: 'center', shadowColor: C.primary, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }}>
+              <Text style={{ fontSize: 24, fontWeight: '900', color: C.primary }}>{mockStamps}</Text>
+              <Text style={{ fontSize: 12, color: C.textMuted }}>طابع</Text>
+            </View>
+          </View>
+        </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -3126,40 +3294,40 @@ function SideDrawer({ visible, role, onClose, onSwitchRole, onLogout, navigate }
 
 // ─── CUSTOMER TAB BAR ─────────────────────────────────────────────────────────
 function CustomerTabBar({ active, navigate, onMenuPress }) {
+  const TabItem = ({ icon, label, screen, params }) => {
+    const isActive = active === screen;
+    return (
+      <TouchableOpacity onPress={() => navigate(screen, params || {})}
+        style={{ flex: 1, alignItems: 'center', gap: 4, paddingTop: 10 }} activeOpacity={0.7}>
+        <Text style={{ fontSize: 22, opacity: isActive ? 1 : 0.55 }}>{icon}</Text>
+        <Text style={{ fontSize: 10.5, color: isActive ? C.primary : C.textMuted,
+          fontWeight: isActive ? '800' : '500' }}>{label}</Text>
+      </TouchableOpacity>
+    );
+  };
+
   return (
     <View style={{ flexDirection: 'row', backgroundColor: C.white,
       borderTopWidth: 1, borderTopColor: C.border,
-      paddingBottom: 22, paddingTop: 6, alignItems: 'flex-end' }}>
+      paddingBottom: 22, paddingTop: 2, alignItems: 'flex-end' }}>
 
-      {/* Home */}
-      <TouchableOpacity onPress={() => navigate('Nearby')}
-        style={{ flex: 1, alignItems: 'center', gap: 3, paddingTop: 8 }} activeOpacity={0.7}>
-        <Text style={{ fontSize: 24 }}>📍</Text>
-        <Text style={{ fontSize: 11, color: active === 'Nearby' ? C.primary : C.textMuted,
-          fontWeight: active === 'Nearby' ? '700' : '400' }}>محلات</Text>
-        {active === 'Nearby' && <View style={{ width: 18, height: 3, borderRadius: 2, backgroundColor: C.primary }} />}
-      </TouchableOpacity>
+      <TabItem icon="🎫" label="رمزي" screen="MyQR" />
+      <TabItem icon="📍" label="محلات" screen="Nearby" />
 
-      {/* QR — Center elevated */}
+      {/* Center elevated scan button */}
       <TouchableOpacity onPress={() => navigate('QRScanner', { mode: 'customer' })}
-        style={{ flex: 1, alignItems: 'center', marginBottom: 8 }} activeOpacity={0.85}>
-        <View style={{ width: 58, height: 58, borderRadius: 29, backgroundColor: C.primary,
+        style={{ flex: 1, alignItems: 'center', marginBottom: 6 }} activeOpacity={0.85}>
+        <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: C.primary,
           alignItems: 'center', justifyContent: 'center',
-          shadowColor: C.primary, shadowOpacity: 0.45, shadowRadius: 10, elevation: 8,
-          borderWidth: 3, borderColor: C.white }}>
+          shadowColor: C.primary, shadowOpacity: 0.45, shadowRadius: 12, elevation: 10,
+          borderWidth: 4, borderColor: C.white }}>
           <Text style={{ fontSize: 26 }}>📷</Text>
         </View>
-        <Text style={{ fontSize: 11, color: C.primary, fontWeight: '700', marginTop: 4 }}>مسح QR</Text>
+        <Text style={{ fontSize: 10.5, color: C.primary, fontWeight: '800', marginTop: 3 }}>مسح</Text>
       </TouchableOpacity>
 
-      {/* Stamp card shortcut */}
-      <TouchableOpacity onPress={() => navigate('StampCard')}
-        style={{ flex: 1, alignItems: 'center', gap: 3, paddingTop: 8 }} activeOpacity={0.7}>
-        <Text style={{ fontSize: 24 }}>🏷️</Text>
-        <Text style={{ fontSize: 11, color: active === 'StampCard' ? C.primary : C.textMuted,
-          fontWeight: active === 'StampCard' ? '700' : '400' }}>طوابعي</Text>
-        {active === 'StampCard' && <View style={{ width: 18, height: 3, borderRadius: 2, backgroundColor: C.primary }} />}
-      </TouchableOpacity>
+      <TabItem icon="🏷️" label="طوابعي" screen="StampCard" />
+      <TabItem icon="⭐" label="نقاطي" screen="PointsWallet" />
     </View>
   );
 }
@@ -3205,7 +3373,7 @@ function MerchantTabBar({ active, navigate, onMenuPress }) {
 }
 
 // ─── APP ──────────────────────────────────────────────────────────────────────
-const CUSTOMER_SCREENS = ['Nearby', 'StampCard', 'PointsWallet', 'CustomerEntry', 'StampSuccess', 'RewardReady', 'QRScanner', 'Profile'];
+const CUSTOMER_SCREENS = ['MyQR', 'Nearby', 'StampCard', 'PointsWallet', 'CustomerEntry', 'StampSuccess', 'RewardReady', 'QRScanner', 'Profile'];
 const MERCHANT_SCREENS = ['Dashboard', 'CashierQueue', 'AddPoints', 'GiftPoints', 'QRPoster', 'CashierConfirm', 'CashierQRScanner'];
 const AUTH_SCREENS = ['PhoneLogin', 'OTP', 'RoleSelect'];
 
@@ -3249,6 +3417,7 @@ export default function App() {
     CashierConfirm: <CashierConfirmScreen navigate={navigate} params={params} />,
     CustomerEntry: <CustomerEntryScreen navigate={navigate} params={params} />,
     Nearby: <NearbyScreen navigate={navigate} params={params} />,
+    MyQR: <MyQRScreen navigate={navigate} params={params} />,
     PointsWallet: <PointsWalletScreen navigate={navigate} params={params} />,
     AddPoints: <AddPointsScreen navigate={navigate} params={params} />,
     GiftPoints: <GiftPointsScreen navigate={navigate} params={params} />,
