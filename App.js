@@ -57,6 +57,33 @@ function applyTheme(mode) {
   currentMode = mode;
 }
 
+// ─── i18n (Arabic / French) ──────────────────────────────────────────────────
+const STRINGS = {
+  ar: {
+    shops: 'محلات', scan: 'مسح', wallet: 'محفظتي', dashboard: 'لوحة', cashier: 'الكاشير',
+    myStamps: 'طوابعي', myPoints: 'نقاطي',
+    menuAccount: 'حسابي الشخصي', menuPoints: 'نقاطي ومكافآتي', menuInvite: 'دعوة الأصدقاء',
+    menuGift: 'إهداء نقاط لزبون', menuAddPts: 'إضافة نقاط يدوياً', menuQRPoster: 'QR المحل للطباعة',
+    support: 'الدعم والمساعدة', notifications: 'الإشعارات', about: 'عن زيدني',
+    darkMode: 'الوضع الليلي', lightMode: 'الوضع النهاري',
+    merchantMode: 'وضع التاجر', customerMode: 'وضع الزبون', logout: 'تسجيل الخروج',
+    language: 'اللغة', showMyCode: 'أظهر هذا الرمز للكاشير ليمسحه',
+  },
+  fr: {
+    shops: 'Commerces', scan: 'Scanner', wallet: 'Portefeuille', dashboard: 'Tableau', cashier: 'Caisse',
+    myStamps: 'Mes tampons', myPoints: 'Mes points',
+    menuAccount: 'Mon compte', menuPoints: 'Points et récompenses', menuInvite: 'Inviter des amis',
+    menuGift: 'Offrir des points', menuAddPts: 'Ajouter des points', menuQRPoster: 'QR à imprimer',
+    support: 'Aide et support', notifications: 'Notifications', about: 'À propos de Zidme',
+    darkMode: 'Mode sombre', lightMode: 'Mode clair',
+    merchantMode: 'Mode commerçant', customerMode: 'Mode client', logout: 'Déconnexion',
+    language: 'Langue', showMyCode: 'Montrez ce code au caissier',
+  },
+};
+let currentLang = 'ar';
+function setLang(lang) { currentLang = lang; }
+function t(key) { return (STRINGS[currentLang] && STRINGS[currentLang][key]) || STRINGS.ar[key] || key; }
+
 // ─── MOCK DATA ────────────────────────────────────────────────────────────────
 const CATEGORY_ICONS = { CAFE: '☕', PIZZERIA: '🍕', FAST_FOOD: '🍔' };
 const CATEGORY_NAMES = { CAFE: 'مقهى', PIZZERIA: 'بيتزيريا', FAST_FOOD: 'وجبات سريعة' };
@@ -3206,7 +3233,7 @@ const DRAWER_TEXT = '#FFFFFF';
 const DRAWER_MUTED = 'rgba(255,255,255,0.45)';
 const DRAWER_BORDER = 'rgba(255,255,255,0.08)';
 
-function SideDrawer({ visible, role, themeMode, onToggleTheme, onClose, onSwitchRole, onLogout, navigate }) {
+function SideDrawer({ visible, role, themeMode, onToggleTheme, lang, onToggleLang, onClose, onSwitchRole, onLogout, navigate }) {
   const slideAnim = useRef(new Animated.Value(-340)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -3219,23 +3246,23 @@ function SideDrawer({ visible, role, themeMode, onToggleTheme, onClose, onSwitch
 
   // Customer menu - no items already in tab bar (Nearby, StampCard, QRScanner)
   const CUSTOMER_MENU = [
-    { icon: '⭐', label: 'نقاطي ومكافآتي', screen: 'PointsWallet' },
-    { icon: '👤', label: 'حسابي الشخصي', screen: 'Profile' },
-    { icon: '📢', label: 'دعوة الأصدقاء', screen: 'PointsWallet' },
+    { icon: '⭐', label: t('menuPoints'), screen: 'PointsWallet' },
+    { icon: '👤', label: t('menuAccount'), screen: 'Profile' },
+    { icon: '📢', label: t('menuInvite'), screen: 'PointsWallet' },
   ];
 
   // Merchant menu - no items already in tab bar (Dashboard, CashierQRScanner, CashierQueue)
   const MERCHANT_MENU = [
-    { icon: '🎁', label: 'إهداء نقاط لزبون', screen: 'GiftPoints' },
-    { icon: '💰', label: 'إضافة نقاط يدوياً', screen: 'AddPoints' },
-    { icon: '📋', label: 'QR المحل للطباعة', screen: 'QRPoster' },
+    { icon: '🎁', label: t('menuGift'), screen: 'GiftPoints' },
+    { icon: '💰', label: t('menuAddPts'), screen: 'AddPoints' },
+    { icon: '📋', label: t('menuQRPoster'), screen: 'QRPoster' },
     { icon: '👤', label: 'حسابي الشخصي', screen: 'Profile' },
   ];
 
   const BOTTOM_ITEMS = [
-    { icon: '💬', label: 'الدعم والمساعدة' },
-    { icon: '🔔', label: 'الإشعارات' },
-    { icon: 'ℹ️', label: 'عن زيدني' },
+    { icon: '💬', label: t('support') },
+    { icon: '🔔', label: t('notifications') },
+    { icon: 'ℹ️', label: t('about') },
   ];
 
   const menu = role === 'customer' ? CUSTOMER_MENU : MERCHANT_MENU;
@@ -3253,8 +3280,26 @@ function SideDrawer({ visible, role, themeMode, onToggleTheme, onClose, onSwitch
           shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 30, elevation: 30 }}>
 
           {/* Profile header */}
-          <View style={{ paddingTop: 52, paddingBottom: 20, paddingHorizontal: 20,
+          <View style={{ paddingTop: 48, paddingBottom: 20, paddingHorizontal: 20,
             borderBottomWidth: 1, borderBottomColor: DRAWER_BORDER }}>
+
+            {/* Language switcher - top of drawer (Fidly translate spot) */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <TouchableOpacity onPress={onToggleLang} activeOpacity={0.8}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 6,
+                  backgroundColor: '#2D2D2D', borderRadius: 99, paddingHorizontal: 12, paddingVertical: 7 }}>
+                <Text style={{ fontSize: 15 }}>🌐</Text>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: lang === 'ar' ? C.accent : DRAWER_MUTED }}>ع</Text>
+                <Text style={{ fontSize: 12, color: DRAWER_MUTED }}>·</Text>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: lang === 'fr' ? C.accent : DRAWER_MUTED }}>FR</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={onClose}
+                style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#2D2D2D',
+                  alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontSize: 16, color: DRAWER_TEXT }}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
             <TouchableOpacity onPress={() => { onClose(); setTimeout(() => navigate('Profile'), 250); }}
               style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }} activeOpacity={0.8}>
               <View style={{ width: 56, height: 56, borderRadius: 28,
@@ -3328,7 +3373,7 @@ function SideDrawer({ visible, role, themeMode, onToggleTheme, onClose, onSwitch
             </TouchableOpacity>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <Text style={{ fontSize: 15, color: DRAWER_TEXT, fontWeight: '600' }}>
-                {themeMode === 'dark' ? 'الوضع الليلي' : 'الوضع النهاري'}
+                {themeMode === 'dark' ? t('darkMode') : t('lightMode')}
               </Text>
               <Text style={{ fontSize: 18 }}>{themeMode === 'dark' ? '🌙' : '☀️'}</Text>
             </View>
@@ -3341,14 +3386,14 @@ function SideDrawer({ visible, role, themeMode, onToggleTheme, onClose, onSwitch
               activeOpacity={0.85}
               style={{ backgroundColor: C.accent, borderRadius: 14, padding: 16, alignItems: 'center' }}>
               <Text style={{ fontSize: 16, fontWeight: '800', color: '#1A1A1A' }}>
-                {role === 'customer' ? '🏪  وضع التاجر' : '🛍️  وضع الزبون'}
+                {role === 'customer' ? '🏪  ' + t('merchantMode') : '🛍️  ' + t('customerMode')}
               </Text>
             </TouchableOpacity>
 
             {/* Social + logout */}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 4 }}>
               <TouchableOpacity onPress={() => { onClose(); setTimeout(onLogout, 250); }}>
-                <Text style={{ fontSize: 13, color: '#EF4444' }}>تسجيل الخروج</Text>
+                <Text style={{ fontSize: 13, color: '#EF4444' }}>{t('logout')}</Text>
               </TouchableOpacity>
               <View style={{ flexDirection: 'row', gap: 16 }}>
                 {['📱', '💬', '📸'].map((icon, i) => (
@@ -3375,74 +3420,81 @@ function CustomerTabBar({ active, navigate, onMenuPress }) {
     const isActive = active === screen;
     return (
       <TouchableOpacity onPress={() => navigate(screen, params || {})}
-        style={{ flex: 1, alignItems: 'center', gap: 4, paddingTop: 10 }} activeOpacity={0.7}>
-        <Text style={{ fontSize: 22, opacity: isActive ? 1 : 0.55 }}>{icon}</Text>
-        <Text style={{ fontSize: 10.5, color: isActive ? C.primary : C.textMuted,
+        style={{ flex: 1, alignItems: 'center', gap: 4, paddingTop: 14 }} activeOpacity={0.7}>
+        <Text style={{ fontSize: 22, opacity: isActive ? 1 : 0.6 }}>{icon}</Text>
+        <Text style={{ fontSize: 11, color: isActive ? C.accent : 'rgba(255,255,255,0.7)',
           fontWeight: isActive ? '800' : '500' }}>{label}</Text>
       </TouchableOpacity>
     );
   };
 
   return (
-    <View style={{ flexDirection: 'row', backgroundColor: C.white,
-      borderTopWidth: 1, borderTopColor: C.border,
-      paddingBottom: 22, paddingTop: 2, alignItems: 'flex-end' }}>
+    <View style={{ backgroundColor: C.primary }}>
+      <View style={{ flexDirection: 'row', paddingBottom: 24, paddingTop: 4,
+        alignItems: 'flex-end', position: 'relative' }}>
 
-      <TabItem icon="📍" label="محلات" screen="Nearby" />
+        <TabItem icon="📍" label={t('shops')} screen="Nearby" />
 
-      {/* Center elevated scan button */}
-      <TouchableOpacity onPress={() => navigate('QRScanner', { mode: 'customer' })}
-        style={{ flex: 1, alignItems: 'center', marginBottom: 6 }} activeOpacity={0.85}>
-        <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: C.primary,
-          alignItems: 'center', justifyContent: 'center',
-          shadowColor: C.primary, shadowOpacity: 0.45, shadowRadius: 12, elevation: 10,
-          borderWidth: 4, borderColor: C.white }}>
-          <Text style={{ fontSize: 26 }}>📷</Text>
+        {/* Center notch space */}
+        <View style={{ flex: 1 }} />
+
+        <TabItem icon="👛" label={t('wallet')} screen="StampCard" />
+
+        {/* Center elevated white scan button (Fidly style) */}
+        <View style={{ position: 'absolute', left: 0, right: 0, top: -22, alignItems: 'center' }}>
+          <TouchableOpacity onPress={() => navigate('QRScanner', { mode: 'customer' })}
+            activeOpacity={0.85} style={{ alignItems: 'center' }}>
+            <View style={{ width: 62, height: 62, borderRadius: 31, backgroundColor: C.white,
+              alignItems: 'center', justifyContent: 'center',
+              shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 10, elevation: 12 }}>
+              <Text style={{ fontSize: 28, color: C.primary }}>⊡</Text>
+              <Text style={{ fontSize: 26, position: 'absolute' }}>📷</Text>
+            </View>
+            <Text style={{ fontSize: 11, color: C.accent, fontWeight: '800', marginTop: 4 }}>{t('scan')}</Text>
+          </TouchableOpacity>
         </View>
-        <Text style={{ fontSize: 10.5, color: C.primary, fontWeight: '800', marginTop: 3 }}>مسح</Text>
-      </TouchableOpacity>
-
-      <TabItem icon="👛" label="محفظتي" screen="StampCard" />
+      </View>
     </View>
   );
 }
 
 // ─── MERCHANT TAB BAR ─────────────────────────────────────────────────────────
 function MerchantTabBar({ active, navigate, onMenuPress }) {
+  const TabItem = ({ icon, label, screen, params }) => {
+    const isActive = active === screen;
+    return (
+      <TouchableOpacity onPress={() => navigate(screen, params || {})}
+        style={{ flex: 1, alignItems: 'center', gap: 4, paddingTop: 14 }} activeOpacity={0.7}>
+        <Text style={{ fontSize: 22, opacity: isActive ? 1 : 0.6 }}>{icon}</Text>
+        <Text style={{ fontSize: 11, color: isActive ? C.accent : 'rgba(255,255,255,0.7)',
+          fontWeight: isActive ? '800' : '500' }}>{label}</Text>
+      </TouchableOpacity>
+    );
+  };
+
   return (
-    <View style={{ flexDirection: 'row', backgroundColor: C.white,
-      borderTopWidth: 1, borderTopColor: C.border,
-      paddingBottom: 22, paddingTop: 6, alignItems: 'flex-end' }}>
+    <View style={{ backgroundColor: C.primary }}>
+      <View style={{ flexDirection: 'row', paddingBottom: 24, paddingTop: 4,
+        alignItems: 'flex-end', position: 'relative' }}>
 
-      {/* Dashboard */}
-      <TouchableOpacity onPress={() => navigate('Dashboard')}
-        style={{ flex: 1, alignItems: 'center', gap: 3, paddingTop: 8 }} activeOpacity={0.7}>
-        <Text style={{ fontSize: 24 }}>📊</Text>
-        <Text style={{ fontSize: 11, color: active === 'Dashboard' ? C.primary : C.textMuted,
-          fontWeight: active === 'Dashboard' ? '700' : '400' }}>لوحة</Text>
-        {active === 'Dashboard' && <View style={{ width: 18, height: 3, borderRadius: 2, backgroundColor: C.primary }} />}
-      </TouchableOpacity>
+        <TabItem icon="📊" label={t('dashboard')} screen="Dashboard" />
+        <View style={{ flex: 1 }} />
+        <TabItem icon="⚡" label={t('cashier')} screen="CashierQueue" />
 
-      {/* QR — Center elevated */}
-      <TouchableOpacity onPress={() => navigate('CashierQRScanner', { mode: 'cashier' })}
-        style={{ flex: 1, alignItems: 'center', marginBottom: 8 }} activeOpacity={0.85}>
-        <View style={{ width: 58, height: 58, borderRadius: 29, backgroundColor: C.accent,
-          alignItems: 'center', justifyContent: 'center',
-          shadowColor: C.accent, shadowOpacity: 0.45, shadowRadius: 10, elevation: 8,
-          borderWidth: 3, borderColor: C.white }}>
-          <Text style={{ fontSize: 26 }}>📷</Text>
+        {/* Center elevated white scan button */}
+        <View style={{ position: 'absolute', left: 0, right: 0, top: -22, alignItems: 'center' }}>
+          <TouchableOpacity onPress={() => navigate('CashierQRScanner', { mode: 'cashier' })}
+            activeOpacity={0.85} style={{ alignItems: 'center' }}>
+            <View style={{ width: 62, height: 62, borderRadius: 31, backgroundColor: C.accent,
+              alignItems: 'center', justifyContent: 'center',
+              shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 10, elevation: 12,
+              borderWidth: 3, borderColor: C.white }}>
+              <Text style={{ fontSize: 26 }}>📷</Text>
+            </View>
+            <Text style={{ fontSize: 11, color: C.accent, fontWeight: '800', marginTop: 4 }}>{t('scan')}</Text>
+          </TouchableOpacity>
         </View>
-        <Text style={{ fontSize: 11, color: C.primary, fontWeight: '700', marginTop: 4 }}>مسح QR</Text>
-      </TouchableOpacity>
-
-      {/* Cashier queue */}
-      <TouchableOpacity onPress={() => navigate('CashierQueue')}
-        style={{ flex: 1, alignItems: 'center', gap: 3, paddingTop: 8 }} activeOpacity={0.7}>
-        <Text style={{ fontSize: 24 }}>⚡</Text>
-        <Text style={{ fontSize: 11, color: active === 'CashierQueue' ? C.primary : C.textMuted,
-          fontWeight: active === 'CashierQueue' ? '700' : '400' }}>الكاشير</Text>
-        {active === 'CashierQueue' && <View style={{ width: 18, height: 3, borderRadius: 2, backgroundColor: C.primary }} />}
-      </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -3458,11 +3510,18 @@ export default function App() {
   const [role, setRole] = useState(null);
   const [showExitModal, setShowExitModal] = useState(false);
   const [themeMode, setThemeMode] = useState('light');
+  const [lang, setLangState] = useState('ar');
 
   const toggleTheme = () => {
     const next = themeMode === 'light' ? 'dark' : 'light';
     applyTheme(next);
     setThemeMode(next);
+  };
+
+  const toggleLang = () => {
+    const next = lang === 'ar' ? 'fr' : 'ar';
+    setLang(next);
+    setLangState(next);
   };
 
   const navigate = (name, p = {}) => {
@@ -3568,6 +3627,8 @@ export default function App() {
         role={role}
         themeMode={themeMode}
         onToggleTheme={toggleTheme}
+        lang={lang}
+        onToggleLang={toggleLang}
         onClose={() => setShowExitModal(false)}
         onSwitchRole={handleSwitchRole}
         onLogout={handleLogout}
