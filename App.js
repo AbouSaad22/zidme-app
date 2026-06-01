@@ -2949,21 +2949,15 @@ function CustomerTabBar({ active, navigate, onMenuPress }) {
         <Text style={{ fontSize: 11, color: C.primary, fontWeight: '700', marginTop: 4 }}>مسح QR</Text>
       </TouchableOpacity>
 
-      {/* Menu */}
+      {/* Menu - inDrive style */}
       <TouchableOpacity onPress={onMenuPress}
         style={{ flex: 1, alignItems: 'center', gap: 3, paddingTop: 8 }} activeOpacity={0.7}>
-        <View style={{ gap: 4, alignItems: 'center' }}>
-          <View style={{ flexDirection: 'row', gap: 3 }}>
-            {[0,1,2].map(i => <View key={i} style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: C.textMuted }} />)}
-          </View>
-          <View style={{ flexDirection: 'row', gap: 3 }}>
-            {[0,1,2].map(i => <View key={i} style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: C.textMuted }} />)}
-          </View>
-          <View style={{ flexDirection: 'row', gap: 3 }}>
-            {[0,1,2].map(i => <View key={i} style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: C.textMuted }} />)}
-          </View>
+        <View style={{ gap: 5 }}>
+          {[0,1,2].map(i => (
+            <View key={i} style={{ width: 22, height: 2.5, borderRadius: 2, backgroundColor: C.textSecondary }} />
+          ))}
         </View>
-        <Text style={{ fontSize: 11, color: C.textMuted }}>القائمة</Text>
+        <Text style={{ fontSize: 11, color: C.textMuted, marginTop: 4 }}>القائمة</Text>
       </TouchableOpacity>
     </View>
   );
@@ -2997,13 +2991,15 @@ function MerchantTabBar({ active, navigate, onMenuPress }) {
         <Text style={{ fontSize: 11, color: C.primary, fontWeight: '700', marginTop: 4 }}>مسح QR</Text>
       </TouchableOpacity>
 
-      {/* Menu */}
+      {/* Menu - inDrive style */}
       <TouchableOpacity onPress={onMenuPress}
         style={{ flex: 1, alignItems: 'center', gap: 3, paddingTop: 8 }} activeOpacity={0.7}>
-        <View style={{ gap: 4, alignItems: 'center' }}>
-          {[0,1,2].map(i => <View key={i} style={{ width: 22, height: 3, borderRadius: 2, backgroundColor: C.textMuted }} />)}
+        <View style={{ gap: 5 }}>
+          {[0,1,2].map(i => (
+            <View key={i} style={{ width: 22, height: 2.5, borderRadius: 2, backgroundColor: C.textSecondary }} />
+          ))}
         </View>
-        <Text style={{ fontSize: 11, color: C.textMuted, marginTop: 2 }}>القائمة</Text>
+        <Text style={{ fontSize: 11, color: C.textMuted, marginTop: 4 }}>القائمة</Text>
       </TouchableOpacity>
     </View>
   );
@@ -3075,6 +3071,47 @@ export default function App() {
       {showMerchantTab && (
         <MerchantTabBar active={screen} navigate={navigate}
           onMenuPress={() => setShowExitModal(true)} />
+      )}
+
+      {/* inDrive-style floating menu button - top left */}
+      {(showCustomerTab || showMerchantTab) && (
+        <TouchableOpacity
+          onPress={() => setShowExitModal(true)}
+          activeOpacity={0.85}
+          style={{
+            position: 'absolute',
+            top: 52,
+            left: 16,
+            width: 52,
+            height: 52,
+            borderRadius: 26,
+            backgroundColor: 'rgba(20,20,20,0.85)',
+            alignItems: 'center',
+            justifyContent: 'center',
+            shadowColor: '#000',
+            shadowOpacity: 0.35,
+            shadowRadius: 8,
+            elevation: 10,
+            zIndex: 100,
+          }}>
+          <View style={{ gap: 5 }}>
+            {[0,1,2].map(i => (
+              <View key={i} style={{ width: 20, height: 2.5, borderRadius: 2, backgroundColor: C.white }} />
+            ))}
+          </View>
+          {/* Notification dot */}
+          <View style={{
+            position: 'absolute',
+            top: 10,
+            right: 10,
+            width: 10,
+            height: 10,
+            borderRadius: 5,
+            backgroundColor: '#EF4444',
+            borderWidth: 1.5,
+            borderColor: 'rgba(20,20,20,0.85)',
+          }} />
+        </TouchableOpacity>
       )}
       <SideDrawer
         visible={showExitModal}
