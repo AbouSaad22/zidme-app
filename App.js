@@ -2602,6 +2602,204 @@ function AddPointsScreen({ navigate }) {
 // ─── NAV BAR ──────────────────────────────────────────────────────────────────
 // No global nav bar - each screen navigates naturally
 
+// ─── COMPONENT: BIRTHDAY PICKER ─────────────────────────────────────────────
+function BirthdayPicker({ value, onChange }) {
+  // value is stored as "YYYY-MM-DD" string, displayed age in years
+  const [showPicker, setShowPicker] = useState(false);
+
+  const today = new Date();
+  const currentYear = today.getFullYear();
+
+  // Parse stored value or default to 25 years ago
+  const parseValue = () => {
+    if (value && value.includes('-')) {
+      const [y, m, d] = value.split('-').map(Number);
+      return { year: y, month: m, day: d };
+    }
+    return { year: currentYear - 25, month: 6, day: 15 };
+  };
+
+  const [selected, setSelected] = useState(parseValue);
+  const [activeCol, setActiveCol] = useState('day'); // 'day'|'month'|'year'
+
+  const MONTHS_AR = [
+    'يناير','فبراير','مارس','أبريل','مايو','يونيو',
+    'يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'
+  ];
+
+  const daysInMonth = (m, y) => new Date(y, m, 0).getDate();
+  const maxDay = daysInMonth(selected.month, selected.year);
+  const days = Array.from({ length: maxDay }, (_, i) => i + 1);
+  const months = Array.from({ length: 12 }, (_, i) => i + 1);
+  const years = Array.from({ length: 80 }, (_, i) => currentYear - 10 - i);
+
+  const calcAge = (y, m, d) => {
+    const birth = new Date(y, m - 1, d);
+    const diff = today - birth;
+    return Math.floor(diff / (365.25 * 24 * 3600 * 1000));
+  };
+
+  const age = calcAge(selected.year, selected.month, selected.day);
+
+  const handleConfirm = () => {
+    const { year, month, day } = selected;
+    const safeDay = Math.min(day, daysInMonth(month, year));
+    const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(safeDay).padStart(2,'0')}`;
+    onChange(dateStr);
+    setShowPicker(false);
+  };
+
+  const handleCancel = () => {
+    setSelected(parseValue());
+    setShowPicker(false);
+  };
+
+  const ColScroll = ({ items, selected: sel, onSelect, renderItem }) => {
+    const scrollRef = useRef(null);
+    const ITEM_H = 44;
+
+    useEffect(() => {
+      const idx = items.indexOf(sel);
+      if (idx >= 0 && scrollRef.current) {
+        setTimeout(() => {
+          scrollRef.current?.scrollTo({ y: idx * ITEM_H, animated: false });
+        }, 50);
+      }
+    }, []);
+
+    return (
+      <ScrollView
+        ref={scrollRef}
+        style={{ height: ITEM_H * 5 }}
+        showsVerticalScrollIndicator={false}
+        snapToInterval={ITEM_H}
+        decelerationRate="fast"
+        onMomentumScrollEnd={e => {
+          const idx = Math.round(e.nativeEvent.contentOffset.y / ITEM_H);
+          const clamped = Math.max(0, Math.min(idx, items.length - 1));
+          onSelect(items[clamped]);
+        }}>
+        {/* padding top */}
+        <View style={{ height: ITEM_H * 2 }} />
+        {items.map((item, i) => {
+          const isSelected = item === sel;
+          return (
+            <TouchableOpacity key={i} onPress={() => onSelect(item)}
+              style={{ height: ITEM_H, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{
+                fontSize: isSelected ? 20 : 16,
+                fontWeight: isSelected ? '800' : '400',
+                color: isSelected ? C.primary : C.textMuted,
+                opacity: isSelected ? 1 : 0.5,
+              }}>
+                {renderItem ? renderItem(item) : item}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+        {/* padding bottom */}
+        <View style={{ height: ITEM_H * 2 }} />
+      </ScrollView>
+    );
+  };
+
+  // Display value
+  const displayText = value
+    ? `${selected.day} ${MONTHS_AR[selected.month - 1]} ${selected.year}  ·  ${age} سنة`
+    : null;
+
+  return (
+    <View>
+      {/* Trigger button */}
+      <TouchableOpacity onPress={() => setShowPicker(true)} activeOpacity={0.85}
+        style={{ borderWidth: 1.5, borderColor: value ? C.primary : C.border,
+          borderRadius: 12, padding: 14, backgroundColor: value ? C.primarySurface : C.background,
+          flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        {value ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <View style={{ backgroundColor: C.primary, borderRadius: 8,
+              paddingHorizontal: 8, paddingVertical: 3 }}>
+              <Text style={{ fontSize: 13, fontWeight: '800', color: C.white }}>{age} سنة</Text>
+            </View>
+            <Text style={{ fontSize: 14, color: C.primary, fontWeight: '600' }}>
+              {selected.day} {MONTHS_AR[selected.month - 1]} {selected.year}
+            </Text>
+          </View>
+        ) : (
+          <Text style={{ fontSize: 14, color: C.textMuted }}>اختر تاريخ ميلادك</Text>
+        )}
+        <Text style={{ fontSize: 20 }}>🎂</Text>
+      </TouchableOpacity>
+
+      {/* Picker Modal */}
+      <Modal visible={showPicker} transparent animationType="slide">
+        <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <View style={{ backgroundColor: C.white, borderTopLeftRadius: 28, borderTopRightRadius: 28,
+            paddingBottom: 36, overflow: 'hidden' }}>
+
+            {/* Header */}
+            <View style={{ backgroundColor: C.primary, paddingTop: 20, paddingBottom: 16,
+              paddingHorizontal: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <TouchableOpacity onPress={handleCancel}>
+                <Text style={{ fontSize: 15, color: 'rgba(255,255,255,0.6)' }}>إلغاء</Text>
+              </TouchableOpacity>
+              <View style={{ alignItems: 'center', gap: 2 }}>
+                <Text style={{ fontSize: 16, fontWeight: '800', color: C.white }}>تاريخ الميلاد</Text>
+                {age > 0 && age < 120 && (
+                  <View style={{ backgroundColor: C.accent, borderRadius: 10,
+                    paddingHorizontal: 10, paddingVertical: 2 }}>
+                    <Text style={{ fontSize: 13, fontWeight: '800', color: C.primary }}>{age} سنة</Text>
+                  </View>
+                )}
+              </View>
+              <TouchableOpacity onPress={handleConfirm}
+                style={{ backgroundColor: C.accent, borderRadius: 10,
+                  paddingHorizontal: 14, paddingVertical: 6 }}>
+                <Text style={{ fontSize: 15, fontWeight: '800', color: C.primary }}>تأكيد</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Column labels */}
+            <View style={{ flexDirection: 'row', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 }}>
+              <Text style={{ flex: 1, textAlign: 'center', fontSize: 12, color: C.textMuted, fontWeight: '600' }}>السنة</Text>
+              <Text style={{ flex: 1, textAlign: 'center', fontSize: 12, color: C.textMuted, fontWeight: '600' }}>الشهر</Text>
+              <Text style={{ flex: 1, textAlign: 'center', fontSize: 12, color: C.textMuted, fontWeight: '600' }}>اليوم</Text>
+            </View>
+
+            {/* Columns */}
+            <View style={{ flexDirection: 'row', paddingHorizontal: 8, position: 'relative' }}>
+              {/* Selection highlight */}
+              <View style={{ position: 'absolute', left: 8, right: 8,
+                top: '50%', marginTop: -22, height: 44,
+                backgroundColor: C.primarySurface, borderRadius: 12,
+                borderWidth: 1.5, borderColor: C.border }} />
+
+              {/* Year */}
+              <View style={{ flex: 1 }}>
+                <ColScroll items={years} selected={selected.year}
+                  onSelect={y => setSelected(s => ({ ...s, year: y }))} />
+              </View>
+
+              {/* Month */}
+              <View style={{ flex: 1 }}>
+                <ColScroll items={months} selected={selected.month}
+                  onSelect={m => setSelected(s => ({ ...s, month: m }))}
+                  renderItem={m => MONTHS_AR[m - 1]} />
+              </View>
+
+              {/* Day */}
+              <View style={{ flex: 1 }}>
+                <ColScroll items={days} selected={Math.min(selected.day, maxDay)}
+                  onSelect={d => setSelected(s => ({ ...s, day: d }))} />
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
 // ─── SCREEN: MY PROFILE ──────────────────────────────────────────────────────
 function ProfileScreen({ navigate }) {
   const [name, setName] = useState(mockProfile.name);
@@ -2716,15 +2914,10 @@ function ProfileScreen({ navigate }) {
                 backgroundColor: C.background, textAlign: 'right' }} />
           </View>
 
-          {/* Age */}
+          {/* Birthday */}
           <View>
-            <FieldLabel label="العمر (اختياري)" fieldKey="age" />
-            <TextInput value={age} onChangeText={setAge}
-              placeholder="مثال: 28" placeholderTextColor={C.textMuted}
-              keyboardType="number-pad" maxLength={3}
-              style={{ borderWidth: 1.5, borderColor: age ? C.primary : C.border,
-                borderRadius: 12, padding: 14, fontSize: 16, color: C.textPrimary,
-                backgroundColor: C.background, textAlign: 'right' }} />
+            <FieldLabel label="تاريخ الميلاد (اختياري)" fieldKey="age" />
+            <BirthdayPicker value={age} onChange={setAge} />
           </View>
 
           {/* Gender */}
