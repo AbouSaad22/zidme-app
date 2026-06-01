@@ -2781,139 +2781,147 @@ function ProfileScreen({ navigate }) {
   );
 }
 
-// ─── SIDE DRAWER (inDrive style) ─────────────────────────────────────────────
+// ─── SIDE DRAWER (inDrive dark style) ────────────────────────────────────────
+const DRAWER_BG = '#1A1A1A';
+const DRAWER_ITEM = '#242424';
+const DRAWER_TEXT = '#FFFFFF';
+const DRAWER_MUTED = 'rgba(255,255,255,0.45)';
+const DRAWER_BORDER = 'rgba(255,255,255,0.08)';
+
 function SideDrawer({ visible, role, onClose, onSwitchRole, onLogout, navigate }) {
   const slideAnim = useRef(new Animated.Value(-340)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(slideAnim, {
-        toValue: visible ? 0 : -340,
-        duration: 260,
-        useNativeDriver: true,
-      }),
-      Animated.timing(fadeAnim, {
-        toValue: visible ? 1 : 0,
-        duration: 260,
-        useNativeDriver: true,
-      }),
+      Animated.timing(slideAnim, { toValue: visible ? 0 : -340, duration: 250, useNativeDriver: true }),
+      Animated.timing(fadeAnim, { toValue: visible ? 1 : 0, duration: 250, useNativeDriver: true }),
     ]).start();
   }, [visible]);
 
+  // Customer menu - no items already in tab bar (Nearby, StampCard, QRScanner)
   const CUSTOMER_MENU = [
-    { icon: '📍', label: 'محلات قريبة', screen: 'Nearby' },
-    { icon: '🏷️', label: 'طوابعي', screen: 'StampCard' },
-    { icon: '⭐', label: 'نقاطي', screen: 'PointsWallet' },
-    { icon: '📷', label: 'مسح QR', screen: 'QRScanner', params: { mode: 'customer' } },
-    { icon: '👤', label: 'حسابي', screen: 'Profile' },
+    { icon: '⭐', label: 'نقاطي ومكافآتي', screen: 'PointsWallet' },
+    { icon: '👤', label: 'حسابي الشخصي', screen: 'Profile' },
+    { icon: '📢', label: 'دعوة الأصدقاء', screen: 'PointsWallet' },
   ];
 
+  // Merchant menu - no items already in tab bar (Dashboard, CashierQRScanner, CashierQueue)
   const MERCHANT_MENU = [
-    { icon: '📊', label: 'لوحة التحكم', screen: 'Dashboard' },
-    { icon: '⚡', label: 'شاشة الكاشير', screen: 'CashierQueue' },
-    { icon: '📷', label: 'مسح QR زبون', screen: 'CashierQRScanner', params: { mode: 'cashier' } },
-    { icon: '💰', label: 'إضافة نقاط', screen: 'AddPoints' },
-    { icon: '🎁', label: 'إهداء نقاط', screen: 'GiftPoints' },
-    { icon: '📋', label: 'عرض QR المحل', screen: 'QRPoster' },
+    { icon: '🎁', label: 'إهداء نقاط لزبون', screen: 'GiftPoints' },
+    { icon: '💰', label: 'إضافة نقاط يدوياً', screen: 'AddPoints' },
+    { icon: '📋', label: 'QR المحل للطباعة', screen: 'QRPoster' },
+    { icon: '👤', label: 'حسابي الشخصي', screen: 'Profile' },
+  ];
+
+  const BOTTOM_ITEMS = [
+    { icon: '💬', label: 'الدعم والمساعدة' },
+    { icon: '🔔', label: 'الإشعارات' },
+    { icon: 'ℹ️', label: 'عن زيدني' },
   ];
 
   const menu = role === 'customer' ? CUSTOMER_MENU : MERCHANT_MENU;
+  const displayName = mockProfile.name || (role === 'customer' ? 'زبون زيدني' : (mockMerchant?.name || 'تاجر زيدني'));
 
   if (!visible) return null;
 
   return (
     <Modal visible={visible} transparent animationType="none">
       <View style={{ flex: 1, flexDirection: 'row' }}>
+
         {/* Drawer */}
-        <Animated.View style={{ width: 300, backgroundColor: C.white, height: '100%',
+        <Animated.View style={{ width: 300, backgroundColor: DRAWER_BG, height: '100%',
           transform: [{ translateX: slideAnim }],
-          shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 24, elevation: 24 }}>
+          shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 30, elevation: 30 }}>
 
           {/* Profile header */}
-          <View style={{ backgroundColor: C.primary, paddingTop: 44, paddingBottom: 20,
-            paddingHorizontal: 20, gap: 12 }}>
-            <TouchableOpacity onPress={onClose} style={{ alignSelf: 'flex-end', marginBottom: 4 }}>
-              <View style={{ backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 8,
-                width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ fontSize: 16, color: C.white, fontWeight: '700' }}>✕</Text>
-              </View>
-            </TouchableOpacity>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-              <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(255,255,255,0.2)',
-                alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: C.accent }}>
-                <Text style={{ fontSize: 28 }}>{role === 'customer' ? '👤' : '🏪'}</Text>
+          <View style={{ paddingTop: 52, paddingBottom: 20, paddingHorizontal: 20,
+            borderBottomWidth: 1, borderBottomColor: DRAWER_BORDER }}>
+            <TouchableOpacity onPress={() => { onClose(); setTimeout(() => navigate('Profile'), 250); }}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }} activeOpacity={0.8}>
+              <View style={{ width: 56, height: 56, borderRadius: 28,
+                backgroundColor: '#333', alignItems: 'center', justifyContent: 'center',
+                borderWidth: 2, borderColor: C.accent }}>
+                <Text style={{ fontSize: 28 }}>
+                  {mockProfile.gender === 'female' ? '👩' : '👨'}
+                </Text>
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 18, fontWeight: '800', color: C.white }}>
-                  {role === 'customer' ? 'زبون زيدني' : (mockMerchant?.name || 'تاجر زيدني')}
-                </Text>
-                <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>0555 123 456</Text>
+                <Text style={{ fontSize: 17, fontWeight: '800', color: DRAWER_TEXT }}>{displayName}</Text>
+                <Text style={{ fontSize: 13, color: DRAWER_MUTED }}>0555 123 456</Text>
+                <View style={{ flexDirection: 'row', gap: 6, marginTop: 4 }}>
+                  <Text style={{ fontSize: 12, color: C.accent }}>⭐ {myZidmePoints} نقطة</Text>
+                  <Text style={{ fontSize: 12, color: DRAWER_MUTED }}>·</Text>
+                  <Text style={{ fontSize: 12, color: DRAWER_MUTED }}>{mockStamps} طابع</Text>
+                </View>
               </View>
-            </View>
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 10,
-                padding: 10, alignItems: 'center' }}>
-                <Text style={{ fontSize: 18, fontWeight: '800', color: C.accent }}>{mockStamps}</Text>
-                <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>طوابع</Text>
-              </View>
-              <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 10,
-                padding: 10, alignItems: 'center' }}>
-                <Text style={{ fontSize: 18, fontWeight: '800', color: C.accent }}>{myZidmePoints}</Text>
-                <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>نقاط</Text>
-              </View>
-            </View>
+              <Text style={{ fontSize: 20, color: DRAWER_MUTED }}>›</Text>
+            </TouchableOpacity>
           </View>
 
           {/* Menu items */}
           <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingVertical: 8 }}>
             {menu.map((item, i) => (
-              <TouchableOpacity key={i} onPress={() => {
-                onClose();
-                setTimeout(() => navigate(item.screen, item.params || {}), 250);
-              }}
+              <TouchableOpacity key={i} onPress={() => { onClose(); setTimeout(() => navigate(item.screen, item.params || {}), 250); }}
                 style={{ flexDirection: 'row', alignItems: 'center', gap: 16,
                   paddingVertical: 16, paddingHorizontal: 20,
-                  borderBottomWidth: 1, borderBottomColor: C.borderLight }}
+                  borderBottomWidth: 1, borderBottomColor: DRAWER_BORDER }}
                 activeOpacity={0.7}>
-                <Text style={{ fontSize: 24, width: 32, textAlign: 'center' }}>{item.icon}</Text>
-                <Text style={{ fontSize: 16, color: C.textPrimary, flex: 1, textAlign: 'right' }}>{item.label}</Text>
-                <Text style={{ fontSize: 18, color: C.textMuted }}>‹</Text>
+                <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#2D2D2D',
+                  alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ fontSize: 18 }}>{item.icon}</Text>
+                </View>
+                <Text style={{ fontSize: 15, color: DRAWER_TEXT, flex: 1, textAlign: 'right' }}>{item.label}</Text>
+                <Text style={{ fontSize: 16, color: DRAWER_MUTED }}>‹</Text>
               </TouchableOpacity>
             ))}
 
-            {/* Switch role */}
-            <TouchableOpacity onPress={() => { onClose(); setTimeout(onSwitchRole, 250); }}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 16,
-                paddingVertical: 16, paddingHorizontal: 20,
-                borderBottomWidth: 1, borderBottomColor: C.borderLight,
-                backgroundColor: C.primarySurface }}
-              activeOpacity={0.7}>
-              <Text style={{ fontSize: 24, width: 32, textAlign: 'center' }}>
-                {role === 'customer' ? '🏪' : '🛍️'}
-              </Text>
-              <Text style={{ fontSize: 16, color: C.primary, fontWeight: '600', flex: 1, textAlign: 'right' }}>
-                التبديل إلى {role === 'customer' ? 'وضع التاجر' : 'وضع الزبون'}
-              </Text>
-              <Text style={{ fontSize: 18, color: C.primary }}>‹</Text>
-            </TouchableOpacity>
+            {/* Divider */}
+            <View style={{ height: 1, backgroundColor: DRAWER_BORDER, marginVertical: 8 }} />
+
+            {/* Bottom items */}
+            {BOTTOM_ITEMS.map((item, i) => (
+              <TouchableOpacity key={i}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 16,
+                  paddingVertical: 14, paddingHorizontal: 20 }}
+                activeOpacity={0.7}>
+                <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#2D2D2D',
+                  alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ fontSize: 18 }}>{item.icon}</Text>
+                </View>
+                <Text style={{ fontSize: 15, color: DRAWER_MUTED, flex: 1, textAlign: 'right' }}>{item.label}</Text>
+              </TouchableOpacity>
+            ))}
           </ScrollView>
 
-          {/* Logout */}
-          <TouchableOpacity onPress={() => { onClose(); setTimeout(onLogout, 250); }}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 16,
-              padding: 20, borderTopWidth: 1, borderTopColor: C.border }}
-            activeOpacity={0.7}>
-            <Text style={{ fontSize: 24, width: 32, textAlign: 'center' }}>🚪</Text>
-            <Text style={{ fontSize: 16, color: C.error, fontWeight: '600', flex: 1, textAlign: 'right' }}>
-              تسجيل الخروج
-            </Text>
-          </TouchableOpacity>
+          {/* Switch mode button - inDrive "Driver mode" yellow button */}
+          <View style={{ padding: 16, paddingBottom: 32, gap: 10,
+            borderTopWidth: 1, borderTopColor: DRAWER_BORDER }}>
+            <TouchableOpacity onPress={() => { onClose(); setTimeout(onSwitchRole, 250); }}
+              activeOpacity={0.85}
+              style={{ backgroundColor: C.accent, borderRadius: 14, padding: 16, alignItems: 'center' }}>
+              <Text style={{ fontSize: 16, fontWeight: '800', color: '#1A1A1A' }}>
+                {role === 'customer' ? '🏪  وضع التاجر' : '🛍️  وضع الزبون'}
+              </Text>
+            </TouchableOpacity>
+
+            {/* Social + logout */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 4 }}>
+              <TouchableOpacity onPress={() => { onClose(); setTimeout(onLogout, 250); }}>
+                <Text style={{ fontSize: 13, color: '#EF4444' }}>تسجيل الخروج</Text>
+              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', gap: 16 }}>
+                {['📱', '💬', '📸'].map((icon, i) => (
+                  <Text key={i} style={{ fontSize: 20 }}>{icon}</Text>
+                ))}
+              </View>
+            </View>
+          </View>
         </Animated.View>
 
         {/* Backdrop */}
         <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
-          <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}
+          <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' }}
             onPress={onClose} activeOpacity={1} />
         </Animated.View>
       </View>
@@ -2949,15 +2957,13 @@ function CustomerTabBar({ active, navigate, onMenuPress }) {
         <Text style={{ fontSize: 11, color: C.primary, fontWeight: '700', marginTop: 4 }}>مسح QR</Text>
       </TouchableOpacity>
 
-      {/* Menu - inDrive style */}
-      <TouchableOpacity onPress={onMenuPress}
+      {/* Stamp card shortcut */}
+      <TouchableOpacity onPress={() => navigate('StampCard')}
         style={{ flex: 1, alignItems: 'center', gap: 3, paddingTop: 8 }} activeOpacity={0.7}>
-        <View style={{ gap: 5 }}>
-          {[0,1,2].map(i => (
-            <View key={i} style={{ width: 22, height: 2.5, borderRadius: 2, backgroundColor: C.textSecondary }} />
-          ))}
-        </View>
-        <Text style={{ fontSize: 11, color: C.textMuted, marginTop: 4 }}>القائمة</Text>
+        <Text style={{ fontSize: 24 }}>🏷️</Text>
+        <Text style={{ fontSize: 11, color: active === 'StampCard' ? C.primary : C.textMuted,
+          fontWeight: active === 'StampCard' ? '700' : '400' }}>طوابعي</Text>
+        {active === 'StampCard' && <View style={{ width: 18, height: 3, borderRadius: 2, backgroundColor: C.primary }} />}
       </TouchableOpacity>
     </View>
   );
@@ -2991,15 +2997,13 @@ function MerchantTabBar({ active, navigate, onMenuPress }) {
         <Text style={{ fontSize: 11, color: C.primary, fontWeight: '700', marginTop: 4 }}>مسح QR</Text>
       </TouchableOpacity>
 
-      {/* Menu - inDrive style */}
-      <TouchableOpacity onPress={onMenuPress}
+      {/* Cashier queue */}
+      <TouchableOpacity onPress={() => navigate('CashierQueue')}
         style={{ flex: 1, alignItems: 'center', gap: 3, paddingTop: 8 }} activeOpacity={0.7}>
-        <View style={{ gap: 5 }}>
-          {[0,1,2].map(i => (
-            <View key={i} style={{ width: 22, height: 2.5, borderRadius: 2, backgroundColor: C.textSecondary }} />
-          ))}
-        </View>
-        <Text style={{ fontSize: 11, color: C.textMuted, marginTop: 4 }}>القائمة</Text>
+        <Text style={{ fontSize: 24 }}>⚡</Text>
+        <Text style={{ fontSize: 11, color: active === 'CashierQueue' ? C.primary : C.textMuted,
+          fontWeight: active === 'CashierQueue' ? '700' : '400' }}>الكاشير</Text>
+        {active === 'CashierQueue' && <View style={{ width: 18, height: 3, borderRadius: 2, backgroundColor: C.primary }} />}
       </TouchableOpacity>
     </View>
   );
